@@ -146,6 +146,9 @@ export default function App() {
   const [masterReportConfig, setMasterReportConfig] = useState(null);
   const [citizenDirectoryToPrint, setCitizenDirectoryToPrint] = useState(null);
 
+  // Global print state listener
+  const [isPrintingMode, setIsPrintingMode] = useState(false);
+
   useEffect(() => {
     const initAuth = async () => {
       try {
@@ -191,7 +194,14 @@ export default function App() {
 
   useEffect(() => { 
     if (taskToPrint || taskDetailsToPrint || masterReportConfig || citizenDirectoryToPrint) {
-      setTimeout(() => window.print(), 500); 
+      setIsPrintingMode(true);
+      setTimeout(() => {
+        window.print();
+        // Give a slight delay to safely reset print mode if desired, but 
+        // relying on manual close via 'Close Print View' button is safer for user UX.
+      }, 600); 
+    } else {
+      setIsPrintingMode(false);
     }
   }, [taskToPrint, taskDetailsToPrint, masterReportConfig, citizenDirectoryToPrint]);
 
@@ -231,20 +241,44 @@ export default function App() {
 
   const activeUser = impersonatedUser || liveCurrentUser;
   const isImpersonating = !!impersonatedUser;
-  const isPrinting = taskToPrint || taskDetailsToPrint || masterReportConfig || citizenDirectoryToPrint;
+
+  // Unified Print Trigger
+  const triggerDownloadPDF = () => {
+    alert("To save as PDF:\n1. The print window will open.\n2. Change the 'Destination' or 'Printer' to 'Save as PDF'.\n3. Click Save.");
+    setTimeout(() => window.print(), 300);
+  };
 
   if (!activeUser) return <LoginScreen onLogin={handleLogin} users={users} />;
 
   return (
     <>
+      {/* Print specific styling added here so that standard app layout stays perfect,
+        but during print rendering, borders, backgrounds and page-breaks act professionally.
+      */}
+      <style dangerouslySetInnerHTML={{ __html: `
+          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+          @media print {
+             @page { margin: 15mm; size: A4 portrait; }
+             body, html { -webkit-print-color-adjust: exact; print-color-adjust: exact; font-family: 'Inter', sans-serif; background: white; margin: 0; padding: 0; }
+             .print-hidden { display: none !important; }
+             .print-only { display: block !important; }
+             .break-inside-avoid { page-break-inside: avoid; break-inside: avoid; }
+             .page-break-before { page-break-before: always; }
+          }
+      ` }} />
+
+      {/* --- PRINT COMPONENTS --- */}
       {taskToPrint && <PrintAcknowledgeSlip task={taskToPrint} onComplete={()=>setTaskToPrint(null)} />}
       {taskDetailsToPrint && <PrintTaskDetailsReport task={taskDetailsToPrint} users={users} onComplete={()=>setTaskDetailsToPrint(null)} />}
       {masterReportConfig && <PrintMasterReport config={masterReportConfig} tasks={tasks} users={users} categories={categories} onComplete={() => setMasterReportConfig(null)} />}
       {citizenDirectoryToPrint && <PrintCitizenDirectory citizens={citizenDirectoryToPrint} onComplete={() => setCitizenDirectoryToPrint(null)} />}
-      {viewingTask && <TaskDetailsModal task={tasks.find(t => t.id === viewingTask.id) || viewingTask} onClose={() => setViewingTask(null)} updateTask={updateTask} deleteTask={deleteTask} users={users} triggerDetailsPrint={setTaskDetailsToPrint} currentUser={activeUser} />}
+      
+      {/* MODAL (Hidden entirely during print so it doesn't overlap or look like a screenshot) */}
+      {viewingTask && !isPrintingMode && <TaskDetailsModal task={tasks.find(t => t.id === viewingTask.id) || viewingTask} onClose={() => setViewingTask(null)} updateTask={updateTask} deleteTask={deleteTask} users={users} triggerDetailsPrint={setTaskDetailsToPrint} triggerDownloadPDF={triggerDownloadPDF} currentUser={activeUser} />}
 
-      <div className={`min-h-screen bg-slate-100 font-sans text-slate-800 flex flex-col ${isPrinting ? 'print:hidden' : ''}`}>
-        <header className={`${isImpersonating ? 'bg-gradient-to-r from-red-900 to-orange-800' : 'bg-gradient-to-r from-blue-900 via-indigo-800 to-purple-900'} text-white shadow-md print:hidden transition-colors`}>
+      {/* --- MAIN APP WRAPPER --- */}
+      <div className={`min-h-screen bg-slate-100 font-sans text-slate-800 flex flex-col print-hidden ${isPrintingMode ? 'hidden' : 'flex'}`}>
+        <header className={`${isImpersonating ? 'bg-gradient-to-r from-red-900 to-orange-800' : 'bg-gradient-to-r from-blue-900 via-indigo-800 to-purple-900'} text-white shadow-md transition-colors`}>
           <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="bg-white/20 p-2 rounded-lg backdrop-blur-sm shadow-inner">
@@ -265,13 +299,13 @@ export default function App() {
 
         <main className="flex-grow max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
           {activeUser.role === 'admin' ? (
-            <AdminDashboard tasks={tasks} updateTask={updateTask} deleteTask={deleteTask} categories={categories} designations={designations} users={users} updateUserDoc={updateUserDoc} setImpersonatedUser={setImpersonatedUser} triggerPrint={setTaskToPrint} triggerDetailsPrint={setTaskDetailsToPrint} triggerViewDetails={setViewingTask} addTask={addTask} addCategory={addCategory} addDesignation={addDesignation} triggerMasterReport={setMasterReportConfig} backupMeta={backupMeta} updateBackupMeta={updateBackupMeta} triggerCitizenPrint={setCitizenDirectoryToPrint} />
+            <AdminDashboard tasks={tasks} updateTask={updateTask} deleteTask={deleteTask} categories={categories} designations={designations} users={users} updateUserDoc={updateUserDoc} setImpersonatedUser={setImpersonatedUser} triggerPrint={setTaskToPrint} triggerDetailsPrint={setTaskDetailsToPrint} triggerViewDetails={setViewingTask} triggerDownloadPDF={triggerDownloadPDF} addTask={addTask} addCategory={addCategory} addDesignation={addDesignation} triggerMasterReport={setMasterReportConfig} backupMeta={backupMeta} updateBackupMeta={updateBackupMeta} triggerCitizenPrint={setCitizenDirectoryToPrint} />
           ) : (
-            <OfficerDashboard user={activeUser} tasks={tasks} updateTask={updateTask} deleteTask={deleteTask} categories={categories} designations={designations} users={users} addTask={addTask} addCategory={addCategory} addDesignation={addDesignation} triggerPrint={setTaskToPrint} triggerDetailsPrint={setTaskDetailsToPrint} triggerViewDetails={setViewingTask} isAdminOverride={currentUser.role === 'admin'} />
+            <OfficerDashboard user={activeUser} tasks={tasks} updateTask={updateTask} deleteTask={deleteTask} categories={categories} designations={designations} users={users} addTask={addTask} addCategory={addCategory} addDesignation={addDesignation} triggerPrint={setTaskToPrint} triggerDetailsPrint={setTaskDetailsToPrint} triggerViewDetails={setViewingTask} triggerDownloadPDF={triggerDownloadPDF} isAdminOverride={currentUser.role === 'admin'} />
           )}
         </main>
         
-        <footer className="print:hidden pb-6 pt-2 text-center text-[10px] font-black text-slate-400 tracking-widest uppercase">
+        <footer className="pb-6 pt-2 text-center text-[10px] font-black text-slate-400 tracking-widest uppercase">
           &copy; {new Date().getFullYear()} PK Navas MLA Office Management System. All Rights Reserved.
         </footer>
       </div>
@@ -372,7 +406,7 @@ const LoginScreen = ({ onLogin, users }) => {
 };
 
 // --- COMBINED OFFICER DASHBOARD ---
-const OfficerDashboard = ({ user, tasks, updateTask, deleteTask, categories, designations, users, addTask, addCategory, addDesignation, triggerPrint, triggerDetailsPrint, triggerViewDetails, isAdminOverride }) => {
+const OfficerDashboard = ({ user, tasks, updateTask, deleteTask, categories, designations, users, addTask, addCategory, addDesignation, triggerPrint, triggerDetailsPrint, triggerViewDetails, triggerDownloadPDF, isAdminOverride }) => {
   const [activeTab, setActiveTab] = useState(user.canInput ? 'input' : 'tasks');
 
   return (
@@ -381,19 +415,19 @@ const OfficerDashboard = ({ user, tasks, updateTask, deleteTask, categories, des
         {user.canInput && <button onClick={() => setActiveTab('input')} className={`px-5 py-2.5 rounded-lg text-sm font-bold transition-all ${activeTab === 'input' ? 'bg-slate-800 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'}`}>Register New Input</button>}
         <button onClick={() => setActiveTab('tasks')} className={`px-5 py-2.5 rounded-lg text-sm font-bold transition-all ${activeTab === 'tasks' ? 'bg-slate-800 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'}`}>My Assigned Works</button>
         <button onClick={() => setActiveTab('direct')} className={`px-5 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'direct' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'}`}><Zap size={16}/> Assignments from MLA</button>
-        <button onClick={() => setActiveTab('history')} className={`px-5 py-2.5 rounded-lg text-sm font-bold transition-all ${activeTab === 'history' ? 'bg-slate-800 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'}`}>History & Reports</button>
+        {user.canInput && <button onClick={() => setActiveTab('history')} className={`px-5 py-2.5 rounded-lg text-sm font-bold transition-all ${activeTab === 'history' ? 'bg-slate-800 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'}`}>History & Reports</button>}
       </div>
 
-      {activeTab === 'input' && user.canInput && <InputFormTab addTask={addTask} categories={categories} designations={designations} addCategory={addCategory} addDesignation={addDesignation} users={users} triggerPrint={triggerPrint} creator={user} />}
+      {activeTab === 'input' && user.canInput && <InputFormTab addTask={addTask} categories={categories} designations={designations} addCategory={addCategory} addDesignation={addDesignation} users={users} triggerPrint={triggerPrint} triggerDownloadPDF={triggerDownloadPDF} creator={user} />}
       {activeTab === 'tasks' && <WorkerTab user={user} tasks={tasks} updateTask={updateTask} isAdminOverride={isAdminOverride} taskTypeFilter="input" triggerViewDetails={triggerViewDetails} />}
       {activeTab === 'direct' && <WorkerTab user={user} tasks={tasks} updateTask={updateTask} isAdminOverride={isAdminOverride} taskTypeFilter="direct" triggerViewDetails={triggerViewDetails} />}
-      {activeTab === 'history' && <AllTasksHistoryTab tasks={tasks} categories={categories} triggerPrint={triggerPrint} triggerDetailsPrint={triggerDetailsPrint} triggerViewDetails={triggerViewDetails} currentUser={user} updateTask={updateTask} deleteTask={deleteTask} users={users} />}
+      {activeTab === 'history' && user.canInput && <AllTasksHistoryTab tasks={tasks} categories={categories} triggerPrint={triggerPrint} triggerDetailsPrint={triggerDetailsPrint} triggerViewDetails={triggerViewDetails} triggerDownloadPDF={triggerDownloadPDF} currentUser={user} updateTask={updateTask} deleteTask={deleteTask} users={users} />}
     </div>
   );
 };
 
 // --- SUB-TABS ---
-const InputFormTab = ({ addTask, categories, designations, addCategory, addDesignation, users, triggerPrint, creator }) => {
+const InputFormTab = ({ addTask, categories, designations, addCategory, addDesignation, users, triggerPrint, triggerDownloadPDF, creator }) => {
   const initForm = {
     types: [], category: '', newCategory: '', programDate: '', subject: '',
     personal: { name: '', designation: '', newDesignation: '', gender: '', referralPerson: '', mobileNumber: '', whatsappNumber: '', houseName: '', place: '', postOffice: '', pinCode: '', localBody: '', otherLocalBody: '', wardNumber: '' },
@@ -473,9 +507,10 @@ const InputFormTab = ({ addTask, categories, designations, addCategory, addDesig
           <p className="text-sm font-bold text-slate-500 uppercase">Reference ID</p>
           <p className="text-4xl font-black text-slate-800 tracking-widest">{lastTask.id}</p>
         </div>
-        <div className="flex gap-4 justify-center mt-4">
-          <button onClick={() => triggerPrint(lastTask)} className="px-6 py-3 bg-slate-800 text-white font-bold rounded-xl flex items-center gap-2 hover:bg-slate-900"><Printer size={18}/> Print Slip</button>
-          <button onClick={() => setLastTask(null)} className="px-6 py-3 bg-blue-600 text-white font-bold rounded-xl flex items-center gap-2 hover:bg-blue-700"><Plus size={18}/> New Input</button>
+        <div className="flex flex-wrap gap-4 justify-center mt-4">
+          <button onClick={() => triggerPrint(lastTask)} className="px-5 py-3 bg-slate-800 text-white font-bold rounded-xl flex items-center gap-2 hover:bg-slate-900 transition-colors"><Printer size={18}/> Print Slip</button>
+          <button onClick={() => { triggerPrint(lastTask); triggerDownloadPDF(); }} className="px-5 py-3 bg-indigo-600 text-white font-bold rounded-xl flex items-center gap-2 hover:bg-indigo-700 transition-colors"><Download size={18}/> Download PDF</button>
+          <button onClick={() => setLastTask(null)} className="px-5 py-3 bg-blue-600 text-white font-bold rounded-xl flex items-center gap-2 hover:bg-blue-700 transition-colors"><Plus size={18}/> New Input</button>
         </div>
       </div>
     );
@@ -799,7 +834,7 @@ const WorkerTaskCard = ({ task, user, updateTask, isUnsolved, isAdminOverride, t
   );
 };
 
-const AllTasksHistoryTab = ({ tasks, categories, triggerPrint, triggerDetailsPrint, triggerViewDetails, currentUser, updateTask, deleteTask, users }) => {
+const AllTasksHistoryTab = ({ tasks, categories, triggerPrint, triggerDetailsPrint, triggerViewDetails, triggerDownloadPDF, currentUser, updateTask, deleteTask, users }) => {
   const [search, setSearch] = useState('');
   const [catFilter, setCatFilter] = useState('All');
   
@@ -835,6 +870,7 @@ const AllTasksHistoryTab = ({ tasks, categories, triggerPrint, triggerDetailsPri
                 <td className="px-4 py-3"><span className={`px-2 py-1 rounded text-xs font-black uppercase ${t.status==='Completed'?'bg-green-100 text-green-700':t.status==='In Progress'?'bg-amber-100 text-amber-700':t.status==='Unsolved'?'bg-slate-200 text-slate-500':'bg-red-100 text-red-700'}`}>{t.status}</span></td>
                 <td className="px-4 py-3 flex items-center gap-2">
                   <button onClick={()=>triggerPrint(t)} title="Print Slip" className="text-blue-600 hover:bg-blue-50 p-2 rounded-lg transition-colors"><Printer size={18}/></button>
+                  <button onClick={()=>{ triggerPrint(t); triggerDownloadPDF(); }} title="Download Slip PDF" className="text-indigo-600 hover:bg-indigo-50 p-2 rounded-lg transition-colors"><Download size={18}/></button>
                   {(currentUser.role === 'admin' || currentUser.canSeeReports) && (
                     <button onClick={()=>{ triggerViewDetails(t); }} title="Detailed Report" className="text-slate-600 hover:bg-slate-100 p-2 rounded-lg transition-colors"><FileText size={18}/></button>
                   )}
@@ -854,7 +890,7 @@ const AllTasksHistoryTab = ({ tasks, categories, triggerPrint, triggerDetailsPri
 
 
 // --- SUPER ADMIN DASHBOARD ---
-const AdminDashboard = ({ tasks, updateTask, deleteTask, categories, designations, users, updateUserDoc, setImpersonatedUser, triggerPrint, triggerDetailsPrint, triggerViewDetails, triggerMasterReport, addTask, addCategory, addDesignation, backupMeta, updateBackupMeta, triggerCitizenPrint }) => {
+const AdminDashboard = ({ tasks, updateTask, deleteTask, categories, designations, users, updateUserDoc, setImpersonatedUser, triggerPrint, triggerDetailsPrint, triggerViewDetails, triggerDownloadPDF, triggerMasterReport, addTask, addCategory, addDesignation, backupMeta, updateBackupMeta, triggerCitizenPrint }) => {
   const [activeTab, setActiveTab] = useState('overview');
   const [reportModalOpen, setReportModalOpen] = useState(false);
 
@@ -874,7 +910,7 @@ const AdminDashboard = ({ tasks, updateTask, deleteTask, categories, designation
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center gap-2 bg-white p-1.5 rounded-xl shadow-sm border border-slate-200 w-fit print:hidden">
+      <div className="flex flex-wrap items-center gap-2 bg-white p-1.5 rounded-xl shadow-sm border border-slate-200 w-fit print-hidden">
         <button onClick={() => setActiveTab('overview')} className={`px-5 py-2.5 rounded-lg text-sm font-bold transition-all ${activeTab === 'overview' ? 'bg-slate-800 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'}`}>Global Overview</button>
         <button onClick={() => setActiveTab('input')} className={`px-5 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'input' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'}`}><Plus size={16}/> Register Input</button>
         <button onClick={() => setActiveTab('citizens')} className={`px-5 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'citizens' ? 'bg-teal-600 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'}`}><Users size={16}/> Citizen Info</button>
@@ -906,8 +942,8 @@ const AdminDashboard = ({ tasks, updateTask, deleteTask, categories, designation
         </div>
       )}
 
-      {activeTab === 'input' && <InputFormTab addTask={addTask} categories={categories} designations={designations} addCategory={addCategory} addDesignation={addDesignation} users={users} triggerPrint={triggerPrint} creator={users.find(u=>u.role==='admin')} />}
-      {activeTab === 'citizens' && <AdminCitizenDirectory tasks={tasks} triggerCitizenPrint={triggerCitizenPrint} />}
+      {activeTab === 'input' && <InputFormTab addTask={addTask} categories={categories} designations={designations} addCategory={addCategory} addDesignation={addDesignation} users={users} triggerPrint={triggerPrint} triggerDownloadPDF={triggerDownloadPDF} creator={users.find(u=>u.role==='admin')} />}
+      {activeTab === 'citizens' && <AdminCitizenDirectory tasks={tasks} triggerCitizenPrint={triggerCitizenPrint} triggerDownloadPDF={triggerDownloadPDF} />}
       {activeTab === 'direct' && <AdminDirectAssignments users={users} tasks={tasks} addTask={addTask} triggerPrint={triggerPrint} triggerDetailsPrint={triggerDetailsPrint} triggerViewDetails={triggerViewDetails} updateTask={updateTask} deleteTask={deleteTask} />}
 
       {activeTab === 'users' && (
@@ -932,13 +968,13 @@ const AdminDashboard = ({ tasks, updateTask, deleteTask, categories, designation
       {activeTab === 'settings' && <AdminSettings users={users} updateUserDoc={updateUserDoc} />}
       {activeTab === 'database' && <AdminDatabase tasks={tasks} users={users} backupMeta={backupMeta} updateBackupMeta={updateBackupMeta} />}
       
-      {reportModalOpen && <ReportConfigModal onClose={()=>setReportModalOpen(false)} onGenerate={(config) => { setReportModalOpen(false); triggerMasterReport(config); }} />}
+      {reportModalOpen && <ReportConfigModal onClose={()=>setReportModalOpen(false)} onGenerate={(config) => { setReportModalOpen(false); triggerMasterReport(config); }} triggerDownloadPDF={triggerDownloadPDF} />}
     </div>
   );
 };
 
 // Admin Citizen Directory
-const AdminCitizenDirectory = ({ tasks, triggerCitizenPrint }) => {
+const AdminCitizenDirectory = ({ tasks, triggerCitizenPrint, triggerDownloadPDF }) => {
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState('visits'); 
   
@@ -985,8 +1021,9 @@ const AdminCitizenDirectory = ({ tasks, triggerCitizenPrint }) => {
           <p className="text-slate-500 font-medium mt-1">Track frequency of citizen visits based on registered mobile numbers.</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={handleDownloadCSV} className="bg-teal-50 text-teal-700 hover:bg-teal-100 px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-colors border border-teal-200"><Download size={16}/> Download CSV</button>
+          <button onClick={handleDownloadCSV} className="bg-teal-50 text-teal-700 hover:bg-teal-100 px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-colors border border-teal-200"><List size={16}/> Export CSV</button>
           <button onClick={() => triggerCitizenPrint(citizensData)} className="bg-slate-800 text-white hover:bg-black px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-colors"><Printer size={16}/> Print PDF</button>
+          <button onClick={() => { triggerCitizenPrint(citizensData); triggerDownloadPDF(); }} className="bg-indigo-600 text-white hover:bg-indigo-700 px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-colors"><Download size={16}/></button>
         </div>
       </div>
 
@@ -1041,43 +1078,36 @@ const AdminCitizenDirectory = ({ tasks, triggerCitizenPrint }) => {
 // Print Citizen Directory
 const PrintCitizenDirectory = ({ citizens, onComplete }) => {
   return (
-    <div className="hidden print:block bg-white text-black font-sans w-full">
-      <style dangerouslySetInnerHTML={{ __html: `
-          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
-          @media print {
-             @page { margin: 15mm; size: A4 portrait; }
-             body { -webkit-print-color-adjust: exact; font-family: 'Inter', sans-serif; }
-          }
-      ` }} />
-      <button onClick={onComplete} className="print:hidden fixed top-4 right-4 bg-red-500 text-white z-[10000] px-4 py-2 rounded-lg font-bold shadow-lg">Close Print View</button>
-      <div className="max-w-[210mm] mx-auto bg-white">
+    <div className="hidden print:block absolute top-0 left-0 w-full bg-white text-black font-sans z-[999999] min-h-screen">
+      <button onClick={onComplete} className="print-hidden fixed top-4 right-4 bg-red-500 text-white z-[10000] px-4 py-2 rounded-lg font-bold shadow-lg">Close Print View</button>
+      <div className="max-w-[210mm] mx-auto bg-white p-8">
         <div className="text-center border-b-2 border-black pb-4 mb-6">
           <h1 className="text-2xl font-bold uppercase tracking-widest mb-1 text-slate-800">PK Navas MLA Office</h1>
           <h2 className="text-lg font-semibold text-slate-500 uppercase tracking-widest">Citizen Directory & Visit Log</h2>
           <p className="mt-2 text-xs text-slate-400">Generated: {new Date().toLocaleString('en-IN')}</p>
         </div>
-        <table className="w-full text-xs border-collapse border border-slate-300 mb-8 break-inside-avoid">
+        <table className="w-full text-xs border-collapse mb-8" style={{ border: '1px solid #cbd5e1' }}>
           <thead>
             <tr className="bg-slate-100 text-left uppercase tracking-wider text-slate-600">
-              <th className="border border-slate-300 p-2">Name & Designation</th>
-              <th className="border border-slate-300 p-2">Contact</th>
-              <th className="border border-slate-300 p-2">Location</th>
-              <th className="border border-slate-300 p-2 text-center">Visits</th>
+              <th className="p-2" style={{ border: '1px solid #cbd5e1' }}>Name & Designation</th>
+              <th className="p-2" style={{ border: '1px solid #cbd5e1' }}>Contact</th>
+              <th className="p-2" style={{ border: '1px solid #cbd5e1' }}>Location</th>
+              <th className="p-2 text-center" style={{ border: '1px solid #cbd5e1' }}>Visits</th>
             </tr>
           </thead>
           <tbody>
             {citizens.map((c,i) => (
               <tr key={i} className="break-inside-avoid">
-                <td className="border border-slate-300 p-2">
+                <td className="p-2" style={{ border: '1px solid #cbd5e1' }}>
                   <strong className="text-sm block">{c.name} {c.gender && `(${c.gender})`}</strong>
                   {c.designation && <span className="text-[10px] text-slate-500 uppercase">{c.designation}</span>}
                 </td>
-                <td className="border border-slate-300 p-2"><strong className="block">{c.mobileNumber}</strong>{c.whatsappNumber && <span>WA: {c.whatsappNumber}</span>}</td>
-                <td className="border border-slate-300 p-2">
+                <td className="p-2" style={{ border: '1px solid #cbd5e1' }}><strong className="block">{c.mobileNumber}</strong>{c.whatsappNumber && <span>WA: {c.whatsappNumber}</span>}</td>
+                <td className="p-2" style={{ border: '1px solid #cbd5e1' }}>
                   <strong>{c.place || '-'}, PO: {c.postOffice || '-'}, PIN: {c.pinCode || '-'}, {c.localBody || c.panchayat || '-'}</strong><br/>
                   <span className="text-[10px]">{c.houseName}</span>
                 </td>
-                <td className="border border-slate-300 p-2 text-center font-bold text-sm">{c.visits}</td>
+                <td className="p-2 text-center font-bold text-sm" style={{ border: '1px solid #cbd5e1' }}>{c.visits}</td>
               </tr>
             ))}
           </tbody>
@@ -1279,13 +1309,14 @@ const AdminDatabase = ({ tasks, users, backupMeta, updateBackupMeta }) => {
 };
 
 // Report Config Modal
-const ReportConfigModal = ({ onClose, onGenerate }) => {
+const ReportConfigModal = ({ onClose, onGenerate, triggerDownloadPDF }) => {
   const [range, setRange] = useState('all');
   const [customStart, setCustomStart] = useState('');
   const [customEnd, setCustomEnd] = useState('');
 
-  const handleGenerate = () => {
+  const handleGenerate = (download) => {
     onGenerate({ range, customStart, customEnd });
+    if (download) setTimeout(triggerDownloadPDF, 100);
   };
 
   return (
@@ -1312,7 +1343,10 @@ const ReportConfigModal = ({ onClose, onGenerate }) => {
               <div><label className="text-[10px] font-black text-slate-500 uppercase">To</label><input type="date" value={customEnd} onChange={e=>setCustomEnd(e.target.value)} className="w-full border p-2 rounded-lg font-bold text-sm"/></div>
             </div>
           )}
-          <button onClick={handleGenerate} className="w-full bg-indigo-600 text-white font-black py-3 rounded-xl hover:bg-indigo-700 flex items-center justify-center gap-2 shadow"><Printer size={18}/> Process & Print</button>
+          <div className="flex gap-3">
+             <button onClick={() => handleGenerate(false)} className="flex-1 bg-indigo-600 text-white font-black py-3 rounded-xl hover:bg-indigo-700 flex items-center justify-center gap-2 shadow transition-colors"><Printer size={18}/> Print</button>
+             <button onClick={() => handleGenerate(true)} className="flex-1 bg-slate-800 text-white font-black py-3 rounded-xl hover:bg-black flex items-center justify-center gap-2 shadow transition-colors"><Download size={18}/> PDF</button>
+          </div>
         </div>
       </div>
     </div>
@@ -1482,7 +1516,7 @@ const AdminGlobalView = ({ tasks, updateTask, deleteTask, users, triggerPrint, t
   );
 };
 
-const TaskDetailsModal = ({ task, onClose, updateTask, deleteTask, users, triggerPrint, triggerDetailsPrint }) => {
+const TaskDetailsModal = ({ task, onClose, updateTask, deleteTask, users, triggerDetailsPrint, triggerDownloadPDF }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState(task);
 
@@ -1514,13 +1548,14 @@ const TaskDetailsModal = ({ task, onClose, updateTask, deleteTask, users, trigge
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4 py-10 overflow-y-auto">
+    <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4 py-10 overflow-y-auto print-hidden">
       <div className="bg-white rounded-3xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col relative overflow-hidden">
         {/* FIXED HEADER */}
         <div className="bg-slate-900 text-white p-6 flex justify-between items-center shrink-0">
           <div><h2 className="text-2xl font-black">Input Profile</h2><p className="text-slate-400 font-bold tracking-widest text-xs uppercase mt-1">ID: {task.id}</p></div>
           <div className="flex gap-3">
-            <button onClick={() => triggerDetailsPrint(task)} title="Print Complete Report" className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2"><Printer size={18}/> Print</button>
+            <button onClick={() => triggerDetailsPrint(task)} title="Print Complete Report" className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2 transition-colors"><Printer size={18}/> Print</button>
+            <button onClick={() => { triggerDetailsPrint(task); triggerDownloadPDF(); }} title="Download PDF" className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2 transition-colors"><Download size={18}/> PDF</button>
             <button onClick={async () => { if(await deleteTask(task.id)) onClose(); }} title="Delete Input" className="bg-red-500/20 text-red-300 hover:bg-red-500 hover:text-white p-2 rounded-lg transition-colors"><Trash2 size={20}/></button>
             <button onClick={onClose} title="Close (Esc)" className="bg-white/10 hover:bg-white/30 px-4 py-2 rounded-lg text-white border border-white/20 flex items-center gap-2 font-bold transition-colors"><X size={20}/> Close</button>
           </div>
@@ -1643,16 +1678,9 @@ const TaskDetailsModal = ({ task, onClose, updateTask, deleteTask, users, trigge
 
 const PrintTaskDetailsReport = ({ task, users, onComplete }) => {
   return (
-    <div className="hidden print:block bg-white text-slate-800 font-sans w-full">
-       <button onClick={onComplete} className="print:hidden fixed top-4 right-4 bg-red-500 text-white z-[10000] px-4 py-2 rounded-lg font-bold shadow-lg">Close Print</button>
-       <style dangerouslySetInnerHTML={{ __html: `
-          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
-          @media print {
-             @page { margin: 15mm; size: A4 portrait; }
-             body { -webkit-print-color-adjust: exact; font-family: 'Inter', sans-serif; }
-          }
-       ` }} />
-       <div className="max-w-[210mm] mx-auto bg-white text-sm">
+    <div className="hidden print:block absolute top-0 left-0 w-full bg-white text-black font-sans z-[999999] min-h-screen">
+       <button onClick={onComplete} className="print-hidden fixed top-4 right-4 bg-red-500 text-white z-[10000] px-4 py-2 rounded-lg font-bold shadow-lg">Close Print</button>
+       <div className="max-w-[210mm] mx-auto bg-white text-sm p-8">
           <div className="border-b-2 border-slate-800 pb-4 mb-8 text-center break-inside-avoid">
               <h1 className="text-2xl font-black uppercase tracking-widest text-slate-900">PK Navas MLA Office</h1>
               <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-widest mt-1">Detailed Input Report</h2>
@@ -1703,12 +1731,12 @@ const PrintTaskDetailsReport = ({ task, users, onComplete }) => {
              <h3 className="text-sm font-black mb-4 uppercase tracking-widest text-slate-400 border-b border-slate-200 pb-1 break-inside-avoid">Complete Action Timeline</h3>
              <div className="">
                {task.timeline.map((ev) => (
-                 <div key={ev.id} className="flex gap-4 items-start border-l-2 border-slate-300 pl-4 py-2 break-inside-avoid">
+                 <div key={ev.id} className="flex gap-4 items-start border-l-2 border-slate-300 pl-4 py-3 break-inside-avoid">
                    <div className="w-1/4 shrink-0">
                       <p className="text-xs font-black text-slate-500 uppercase tracking-widest">{formatDate(ev.time)}</p>
                       <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase">By: {ev.by}</p>
                    </div>
-                   <div className="w-3/4 bg-slate-50 p-3 rounded-lg border border-slate-100">
+                   <div className="w-3/4 bg-slate-50 p-3 rounded-lg border border-slate-200">
                       <p className="font-bold text-slate-800 text-sm">{ev.text}</p>
                    </div>
                  </div>
@@ -1727,76 +1755,71 @@ const PrintTaskDetailsReport = ({ task, users, onComplete }) => {
 
 const PrintAcknowledgeSlip = ({ task, onComplete }) => {
   return (
-    <div className="hidden print:flex fixed inset-0 bg-white z-[9999] text-slate-900 font-sans flex-col h-[100vh] w-full">
-      <button onClick={onComplete} className="print:hidden absolute top-0 left-0 bg-red-500 text-white z-[10000] p-2">Close Print View</button>
-      <style dangerouslySetInnerHTML={{ __html: `
-          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
-          @media print {
-             @page { margin: 0; size: A4 portrait; }
-             body { -webkit-print-color-adjust: exact; font-family: 'Inter', sans-serif; }
-          }
-      ` }} />
+    <div className="hidden print:block absolute top-0 left-0 w-full bg-white text-black font-sans z-[999999] min-h-screen">
+      <button onClick={onComplete} className="print-hidden fixed top-4 right-4 bg-red-500 text-white z-[10000] px-4 py-2 rounded-lg font-bold shadow-lg">Close Print View</button>
 
-      {/* 75% Top - Office Copy */}
-      <div className="h-[75%] p-10 flex flex-col relative box-border overflow-hidden">
-         <div className="text-center border-b-2 border-slate-800 pb-4 mb-6 shrink-0">
-            <h1 className="text-2xl font-black tracking-widest uppercase text-slate-900">PK Navas MLA Office</h1>
-            <h2 className="text-xs font-bold tracking-widest text-slate-500 uppercase mt-1">Official Office Copy</h2>
-         </div>
+      <div className="max-w-[210mm] min-h-[297mm] mx-auto bg-white flex flex-col box-border">
+        {/* 75% Top - Office Copy */}
+        <div className="flex-[3] p-10 flex flex-col relative box-border">
+           <div className="text-center border-b-2 border-slate-800 pb-4 mb-6 shrink-0">
+              <h1 className="text-2xl font-black tracking-widest uppercase text-slate-900">PK Navas MLA Office</h1>
+              <h2 className="text-xs font-bold tracking-widest text-slate-500 uppercase mt-1">Official Office Copy</h2>
+           </div>
 
-         <div className="flex justify-between items-center mb-6 bg-slate-50 p-4 border border-slate-200 rounded-lg shrink-0">
-             <div><p className="text-[10px] text-slate-500 uppercase font-black tracking-widest">Reference ID</p><p className="text-xl font-black text-slate-900">{task.id}</p></div>
-             <div className="text-right"><p className="text-[10px] text-slate-500 uppercase font-black tracking-widest">Date</p><p className="text-base font-bold text-slate-800">{formatDate(task.createdAt)}</p></div>
-         </div>
+           <div className="flex justify-between items-center mb-6 bg-slate-50 p-4 border border-slate-200 rounded-lg shrink-0">
+               <div><p className="text-[10px] text-slate-500 uppercase font-black tracking-widest">Reference ID</p><p className="text-xl font-black text-slate-900">{task.id}</p></div>
+               <div className="text-right"><p className="text-[10px] text-slate-500 uppercase font-black tracking-widest">Date</p><p className="text-base font-bold text-slate-800">{formatDate(task.createdAt)}</p></div>
+           </div>
 
-         <div className="grid grid-cols-2 gap-x-8 gap-y-4 text-sm mb-6 shrink-0">
-             <div><span className="text-slate-500 font-bold block text-[10px] uppercase tracking-wider mb-1">Citizen Name</span> <strong className="text-base">{task.personalDetails.name}</strong> {task.personalDetails.designation && <span className="text-[10px] bg-slate-200 px-1 rounded ml-1 uppercase">{task.personalDetails.designation}</span>}</div>
-             <div><span className="text-slate-500 font-bold block text-[10px] uppercase tracking-wider mb-1">Contact</span> <strong>{task.personalDetails.mobileNumber}</strong></div>
-             <div><span className="text-slate-500 font-bold block text-[10px] uppercase tracking-wider mb-1">Referral</span> <strong>{task.personalDetails.referralPerson || '-'}</strong></div>
-             <div><span className="text-slate-500 font-bold block text-[10px] uppercase tracking-wider mb-1">Address</span> <strong>{task.personalDetails.place || '-'}, PO: {task.personalDetails.postOffice || '-'}, PIN: {task.personalDetails.pinCode || '-'}, {task.personalDetails.localBody || task.personalDetails.panchayat || '-'}</strong></div>
-         </div>
+           <div className="grid grid-cols-2 gap-x-8 gap-y-4 text-sm mb-6 shrink-0">
+               <div><span className="text-slate-500 font-bold block text-[10px] uppercase tracking-wider mb-1">Citizen Name</span> <strong className="text-base">{task.personalDetails.name}</strong> {task.personalDetails.designation && <span className="text-[10px] bg-slate-200 px-1 rounded ml-1 uppercase">{task.personalDetails.designation}</span>}</div>
+               <div><span className="text-slate-500 font-bold block text-[10px] uppercase tracking-wider mb-1">Contact</span> <strong>{task.personalDetails.mobileNumber}</strong></div>
+               <div><span className="text-slate-500 font-bold block text-[10px] uppercase tracking-wider mb-1">Referral</span> <strong>{task.personalDetails.referralPerson || '-'}</strong></div>
+               <div><span className="text-slate-500 font-bold block text-[10px] uppercase tracking-wider mb-1">Address</span> <strong>{task.personalDetails.place || '-'}, PO: {task.personalDetails.postOffice || '-'}, PIN: {task.personalDetails.pinCode || '-'}, {task.personalDetails.localBody || task.personalDetails.panchayat || '-'}</strong></div>
+           </div>
 
-         <div className="mb-4 shrink-0">
-            <span className="text-slate-500 font-bold block text-[10px] uppercase tracking-wider mb-1">Category & Type</span>
-            <div className="font-bold text-slate-800"><span className="bg-slate-200 px-2 py-0.5 rounded text-xs mr-2">{task.types.join(', ')}</span> {task.category}</div>
-         </div>
+           <div className="mb-4 shrink-0">
+              <span className="text-slate-500 font-bold block text-[10px] uppercase tracking-wider mb-1">Category & Type</span>
+              <div className="font-bold text-slate-800"><span className="bg-slate-200 px-2 py-0.5 rounded text-xs mr-2">{task.types.join(', ')}</span> {task.category}</div>
+           </div>
 
-         <div className="mb-6 flex-1 min-h-[100px] flex flex-col">
-            <span className="text-slate-500 font-bold block text-[10px] uppercase tracking-wider mb-1">Subject & Description</span>
-            <div className="font-bold text-slate-800 mb-2">{task.subject || '-'}</div>
-            {task.description && <div className="p-3 border border-slate-200 bg-slate-50 rounded-lg text-xs whitespace-pre-wrap flex-1">{task.description}</div>}
-         </div>
+           <div className="mb-6 flex-1 min-h-[100px] flex flex-col overflow-hidden">
+              <span className="text-slate-500 font-bold block text-[10px] uppercase tracking-wider mb-1">Subject & Description</span>
+              <div className="font-bold text-slate-800 mb-2">{task.subject || '-'}</div>
+              {task.description && <div className="p-3 border border-slate-200 bg-slate-50 rounded-lg text-xs whitespace-pre-wrap flex-1 overflow-hidden text-ellipsis line-clamp-[12]">{task.description}</div>}
+           </div>
 
-         <div className="mt-auto flex justify-between pt-8 shrink-0">
-            <div className="text-center"><div className="w-40 border-t-2 border-slate-800 pt-2 font-bold uppercase text-[10px] tracking-widest">Citizen Sign</div></div>
-            <div className="text-center"><div className="w-40 border-t-2 border-slate-800 pt-2 font-bold uppercase text-[10px] tracking-widest">Office Seal & Sign</div></div>
-         </div>
-      </div>
+           <div className="mt-auto flex justify-between pt-8 shrink-0">
+              <div className="text-center"><div className="w-40 border-t-2 border-slate-800 pt-2 font-bold uppercase text-[10px] tracking-widest">Citizen Sign</div></div>
+              <div className="text-center"><div className="w-40 border-t-2 border-slate-800 pt-2 font-bold uppercase text-[10px] tracking-widest">Office Seal & Sign</div></div>
+           </div>
+        </div>
 
-      {/* Scissor Divider */}
-      <div className="border-t-2 border-dashed border-slate-400 relative shrink-0">
-         <div className="absolute left-1/2 -top-3 -translate-x-1/2 bg-white px-4 text-slate-400 flex items-center gap-2"><Scissors size={18}/><span className="text-[10px] font-black uppercase tracking-widest">Cut Here</span></div>
-      </div>
+        {/* Scissor Divider */}
+        <div className="border-t-2 border-dashed border-slate-400 relative shrink-0">
+           <div className="absolute left-1/2 -top-3 -translate-x-1/2 bg-white px-4 text-slate-400 flex items-center gap-2"><Scissors size={18}/><span className="text-[10px] font-black uppercase tracking-widest">Cut Here</span></div>
+        </div>
 
-      {/* 25% Bottom - Citizen Copy */}
-      <div className="h-[25%] p-10 bg-slate-50 flex flex-col justify-center box-border">
-         <div className="flex justify-between items-start mb-4">
-             <div>
-                <h1 className="text-xl font-black tracking-widest uppercase text-slate-900">PK Navas MLA Office</h1>
-                <p className="text-[10px] font-bold tracking-widest text-slate-500 uppercase mt-1">Citizen Token</p>
-             </div>
-             <div className="text-right">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Ref ID</p>
-                <p className="text-xl font-black text-slate-900 bg-white border border-slate-200 px-3 py-1 rounded-lg">{task.id}</p>
-             </div>
-         </div>
-         <div className="grid grid-cols-2 gap-y-2 gap-x-8 text-xs mb-4">
-             <div><span className="text-slate-500 font-bold">Name:</span> <strong className="text-sm">{task.personalDetails.name}</strong></div>
-             <div><span className="text-slate-500 font-bold">Date:</span> <strong>{formatDate(task.createdAt)}</strong></div>
-             <div><span className="text-slate-500 font-bold">Category:</span> <strong>{task.category}</strong></div>
-             <div className="truncate"><span className="text-slate-500 font-bold">Subject:</span> <strong>{task.subject}</strong></div>
-         </div>
-         <p className="text-[11px] text-center text-slate-500 font-medium italic mt-auto border-t border-slate-200 pt-4">Thank you for visiting. Your request has been securely registered.</p>
+        {/* 25% Bottom - Citizen Copy */}
+        <div className="flex-1 p-10 bg-slate-50 flex flex-col justify-center box-border">
+           <div className="flex justify-between items-start mb-4">
+               <div>
+                  <h1 className="text-xl font-black tracking-widest uppercase text-slate-900">PK Navas MLA Office</h1>
+                  <p className="text-[10px] font-bold tracking-widest text-slate-500 uppercase mt-1">Citizen Token</p>
+               </div>
+               <div className="text-right">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Ref ID</p>
+                  <p className="text-xl font-black text-slate-900 bg-white border border-slate-300 shadow-sm px-3 py-1 rounded-lg">{task.id}</p>
+               </div>
+           </div>
+           <div className="grid grid-cols-2 gap-y-2 gap-x-8 text-xs mb-4">
+               <div><span className="text-slate-500 font-bold">Name:</span> <strong className="text-sm block">{task.personalDetails.name}</strong></div>
+               <div><span className="text-slate-500 font-bold">Date:</span> <strong className="block">{formatDate(task.createdAt)}</strong></div>
+               <div><span className="text-slate-500 font-bold">Category:</span> <strong className="block">{task.category}</strong></div>
+               <div className="truncate"><span className="text-slate-500 font-bold">Subject:</span> <strong className="block truncate">{task.subject}</strong></div>
+           </div>
+           <p className="text-[11px] text-center text-slate-500 font-medium italic mt-auto border-t border-slate-200 pt-4">Thank you for visiting. Your request has been securely registered.</p>
+        </div>
       </div>
     </div>
   );
@@ -1850,17 +1873,10 @@ const PrintMasterReport = ({ config, tasks, users, categories, onComplete }) => 
   const rangeLabel = { all: 'All Time', '1week': 'Last 7 Days', '1month': 'Last 30 Days', '6months': 'Last 6 Months', custom: `Custom Range (${config.customStart} to ${config.customEnd})` };
 
   return (
-    <div className="hidden print:block bg-white text-slate-900 font-sans w-full">
-      <button onClick={onComplete} className="print:hidden fixed top-4 right-4 bg-red-500 text-white z-[10000] px-4 py-2 rounded-lg font-bold shadow-lg">Close Report View</button>
-      <style dangerouslySetInnerHTML={{ __html: `
-          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
-          @media print {
-             @page { margin: 15mm; size: A4 portrait; }
-             body { -webkit-print-color-adjust: exact; font-family: 'Inter', sans-serif; }
-          }
-      ` }} />
+    <div className="hidden print:block absolute top-0 left-0 w-full bg-white text-black font-sans z-[999999] min-h-screen">
+      <button onClick={onComplete} className="print-hidden fixed top-4 right-4 bg-red-500 text-white z-[10000] px-4 py-2 rounded-lg font-bold shadow-lg">Close Report View</button>
       
-      <div className="max-w-[210mm] mx-auto bg-white">
+      <div className="max-w-[210mm] mx-auto bg-white p-8">
         {/* Header */}
         <div className="text-center border-b-4 border-slate-800 pb-4 mb-6 break-inside-avoid">
           <h1 className="text-3xl font-black uppercase tracking-widest mb-1">MLA Office - Tanur</h1>
@@ -1870,38 +1886,38 @@ const PrintMasterReport = ({ config, tasks, users, categories, onComplete }) => 
 
         {/* Global Summary */}
         <div className="break-inside-avoid">
-          <h3 className="text-sm font-black bg-slate-100 p-2 uppercase tracking-widest mb-4 text-center rounded">Global Overview</h3>
+          <h3 className="text-sm font-black bg-slate-100 p-2 uppercase tracking-widest mb-4 text-center rounded border border-slate-200">Global Overview</h3>
           <div className="grid grid-cols-5 gap-2 mb-8 text-center">
             <div className="border border-slate-300 rounded-lg p-3 bg-slate-50"><p className="text-2xl font-black">{total}</p><p className="text-[9px] font-black text-slate-500 uppercase tracking-wider mt-1">Total Inputs</p></div>
             <div className="border border-slate-300 rounded-lg p-3 bg-slate-50"><p className="text-2xl font-black">{comp}</p><p className="text-[9px] font-black text-slate-500 uppercase tracking-wider mt-1">Completed</p></div>
             <div className="border border-slate-300 rounded-lg p-3 bg-slate-50"><p className="text-2xl font-black">{inprog}</p><p className="text-[9px] font-black text-slate-500 uppercase tracking-wider mt-1">In Progress</p></div>
             <div className="border border-slate-300 rounded-lg p-3 bg-slate-50"><p className="text-2xl font-black">{pend}</p><p className="text-[9px] font-black text-slate-500 uppercase tracking-wider mt-1">Pending</p></div>
-            <div className="border border-red-200 rounded-lg p-3 bg-red-50"><p className="text-2xl font-black text-red-600">{overdue}</p><p className="text-[9px] font-black text-red-500 uppercase tracking-wider mt-1">Overdue</p></div>
+            <div className="border border-slate-300 rounded-lg p-3 bg-white"><p className="text-2xl font-black">{overdue}</p><p className="text-[9px] font-black text-slate-500 uppercase tracking-wider mt-1">Overdue</p></div>
           </div>
         </div>
 
         {/* Staff Performance */}
         <div className="break-inside-avoid">
-          <h3 className="text-sm font-black bg-slate-100 p-2 uppercase tracking-widest mb-4 text-center rounded">Staff Performance Analytics</h3>
+          <h3 className="text-sm font-black bg-slate-100 p-2 uppercase tracking-widest mb-4 text-center rounded border border-slate-200">Staff Performance Analytics</h3>
           <div className="mb-4 text-center">
-            <p className="font-bold text-sm">Top Performing Officer: <span className="bg-slate-800 text-white px-3 py-1 rounded-full ml-1 text-xs uppercase tracking-wider">{topPerf}</span></p>
+            <p className="font-bold text-sm">Top Performing Officer: <span className="font-black ml-1 text-xs uppercase tracking-wider border border-slate-800 px-2 py-1 rounded">{topPerf}</span></p>
           </div>
-          <table className="w-full text-sm border-collapse border border-slate-300 mb-8 rounded-lg overflow-hidden">
+          <table className="w-full text-sm border-collapse mb-8" style={{ border: '1px solid #cbd5e1' }}>
             <thead>
               <tr className="bg-slate-100 text-slate-600 uppercase tracking-wider text-[10px]">
-                <th className="border border-slate-300 p-3 text-left font-black">Officer Name</th>
-                <th className="border border-slate-300 p-3 text-center font-black">Assigned</th>
-                <th className="border border-slate-300 p-3 text-center font-black">Completed</th>
-                <th className="border border-slate-300 p-3 text-center font-black">Success Rate</th>
+                <th className="p-3 text-left font-black" style={{ border: '1px solid #cbd5e1' }}>Officer Name</th>
+                <th className="p-3 text-center font-black" style={{ border: '1px solid #cbd5e1' }}>Assigned</th>
+                <th className="p-3 text-center font-black" style={{ border: '1px solid #cbd5e1' }}>Completed</th>
+                <th className="p-3 text-center font-black" style={{ border: '1px solid #cbd5e1' }}>Success Rate</th>
               </tr>
             </thead>
             <tbody>
               {staffPerf.map((s,i) => (
                 <tr key={i} className="bg-white">
-                  <td className="border border-slate-300 p-3 font-bold">{s.name}</td>
-                  <td className="border border-slate-300 p-3 text-center">{s.total}</td>
-                  <td className="border border-slate-300 p-3 text-center">{s.completed}</td>
-                  <td className="border border-slate-300 p-3 text-center font-black">{s.rate}%</td>
+                  <td className="p-3 font-bold" style={{ border: '1px solid #cbd5e1' }}>{s.name}</td>
+                  <td className="p-3 text-center" style={{ border: '1px solid #cbd5e1' }}>{s.total}</td>
+                  <td className="p-3 text-center" style={{ border: '1px solid #cbd5e1' }}>{s.completed}</td>
+                  <td className="p-3 text-center font-black" style={{ border: '1px solid #cbd5e1' }}>{s.rate}%</td>
                 </tr>
               ))}
             </tbody>
@@ -1910,7 +1926,7 @@ const PrintMasterReport = ({ config, tasks, users, categories, onComplete }) => 
 
         {/* Categories */}
         <div className="break-inside-avoid">
-          <h3 className="text-sm font-black bg-slate-100 p-2 uppercase tracking-widest mb-4 text-center rounded">Input Categories Breakdown</h3>
+          <h3 className="text-sm font-black bg-slate-100 p-2 uppercase tracking-widest mb-4 text-center rounded border border-slate-200">Input Categories Breakdown</h3>
           <div className="grid grid-cols-2 gap-x-8 gap-y-2 mb-8">
             {catStats.filter(c=>c.count>0).map((c,i) => (
               <div key={i} className="flex justify-between border-b border-slate-200 py-1 text-sm font-semibold">
@@ -1921,26 +1937,26 @@ const PrintMasterReport = ({ config, tasks, users, categories, onComplete }) => 
         </div>
 
         {/* Detailed Breakdown */}
-        <h3 className="text-sm font-black bg-slate-100 p-2 uppercase tracking-widest mb-4 text-center rounded break-inside-avoid">Detailed Records Highlight</h3>
-        <table className="w-full text-[10px] border-collapse border border-slate-300 rounded-lg overflow-hidden">
+        <h3 className="text-sm font-black bg-slate-100 p-2 uppercase tracking-widest mb-4 text-center rounded border border-slate-200 break-inside-avoid">Detailed Records Highlight</h3>
+        <table className="w-full text-[10px] border-collapse" style={{ border: '1px solid #cbd5e1' }}>
           <thead>
             <tr className="bg-slate-100 text-slate-600 uppercase tracking-wider">
-              <th className="border border-slate-300 p-2 text-left font-black">ID & Date</th>
-              <th className="border border-slate-300 p-2 text-left font-black">Subject / Citizen</th>
-              <th className="border border-slate-300 p-2 text-left font-black">Assigned</th>
-              <th className="border border-slate-300 p-2 text-center font-black">Status</th>
+              <th className="p-2 text-left font-black" style={{ border: '1px solid #cbd5e1' }}>ID & Date</th>
+              <th className="p-2 text-left font-black" style={{ border: '1px solid #cbd5e1' }}>Subject / Citizen</th>
+              <th className="p-2 text-left font-black" style={{ border: '1px solid #cbd5e1' }}>Assigned To</th>
+              <th className="p-2 text-center font-black" style={{ border: '1px solid #cbd5e1' }}>Status</th>
             </tr>
           </thead>
           <tbody>
             {filteredTasks.map(t => (
               <tr key={t.id} className="bg-white break-inside-avoid">
-                <td className="border border-slate-300 p-2 whitespace-nowrap"><strong className="block text-slate-800">{t.id}</strong><span className="text-slate-500">{formatDate(t.createdAt)}</span></td>
-                <td className="border border-slate-300 p-2"><strong className="block text-slate-800 truncate max-w-[200px]">{t.subject || 'No Subject'}</strong><span className="text-slate-500">{t.personalDetails.name}</span></td>
-                <td className="border border-slate-300 p-2 text-slate-700 font-semibold">{t.assignedTo.map(id => users.find(u=>u.id===id)?.name).join(', ')}</td>
-                <td className="border border-slate-300 p-2 text-center font-bold">{t.status}</td>
+                <td className="p-2 whitespace-nowrap" style={{ border: '1px solid #cbd5e1' }}><strong className="block text-slate-800">{t.id}</strong><span className="text-slate-500">{formatDate(t.createdAt)}</span></td>
+                <td className="p-2" style={{ border: '1px solid #cbd5e1' }}><strong className="block text-slate-800 truncate max-w-[200px]">{t.subject || 'No Subject'}</strong><span className="text-slate-500">{t.personalDetails.name}</span></td>
+                <td className="p-2 text-slate-700 font-semibold" style={{ border: '1px solid #cbd5e1' }}>{t.assignedTo.map(id => users.find(u=>u.id===id)?.name).join(', ')}</td>
+                <td className="p-2 text-center font-bold" style={{ border: '1px solid #cbd5e1' }}>{t.status}</td>
               </tr>
             ))}
-            {filteredTasks.length === 0 && <tr><td colSpan="4" className="border border-slate-300 p-4 text-center italic text-slate-500 font-medium">No records found in this date range.</td></tr>}
+            {filteredTasks.length === 0 && <tr><td colSpan="4" className="p-4 text-center italic text-slate-500 font-medium" style={{ border: '1px solid #cbd5e1' }}>No records found in this date range.</td></tr>}
           </tbody>
         </table>
 

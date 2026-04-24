@@ -4,7 +4,7 @@ import {
   Clock, CheckCircle, AlertTriangle, FileText, Calendar, 
   MapPin, Phone, MessageSquare, Printer, Settings, Check, 
   Send, ArrowDownUp, X, Edit, Trash2, Eye, Shield, 
-  ChevronRight, Lock, Activity, UserX, CalendarPlus, Zap, FileOutput, Database, Download, Upload, AlertOctagon, Scissors, List
+  ChevronRight, Lock, Activity, UserX, CalendarPlus, Zap, FileOutput, Database, Download, Upload, AlertOctagon, Scissors
 } from 'lucide-react';
 
 // --- FIREBASE INTEGRATION ---
@@ -27,6 +27,7 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'mla-office-tanur';
 
+// Safe references using the mandatory path structure
 const getColRef = (colName) => collection(db, 'artifacts', appId, 'public', 'data', colName);
 const getDocRef = (colName, docId) => doc(db, 'artifacts', appId, 'public', 'data', colName, docId);
 
@@ -223,7 +224,7 @@ export default function App() {
   }, [liveCurrentUser, currentUser]);
 
   const activeUser = impersonatedUser || liveCurrentUser;
-  const isGodMode = !!impersonatedUser;
+  const isImpersonating = !!impersonatedUser;
   const isPrinting = taskToPrint || taskDetailsToPrint || masterReportConfig || citizenDirectoryToPrint;
 
   if (!activeUser) return <LoginScreen onLogin={handleLogin} users={users} />;
@@ -236,19 +237,19 @@ export default function App() {
       {citizenDirectoryToPrint && <PrintCitizenDirectory citizens={citizenDirectoryToPrint} onComplete={() => setCitizenDirectoryToPrint(null)} />}
 
       <div className={`min-h-screen bg-slate-100 font-sans text-slate-800 flex flex-col ${isPrinting ? 'print:hidden' : ''}`}>
-        <header className={`${isGodMode ? 'bg-gradient-to-r from-red-900 to-orange-800' : 'bg-gradient-to-r from-blue-900 via-indigo-800 to-purple-900'} text-white shadow-md print:hidden transition-colors`}>
+        <header className={`${isImpersonating ? 'bg-gradient-to-r from-red-900 to-orange-800' : 'bg-gradient-to-r from-blue-900 via-indigo-800 to-purple-900'} text-white shadow-md print:hidden transition-colors`}>
           <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="bg-white/20 p-2 rounded-lg backdrop-blur-sm shadow-inner">
-                {isGodMode ? <Shield size={20} className="text-white animate-pulse" /> : <User size={20} className="text-white" />}
+                {isImpersonating ? <Shield size={20} className="text-white animate-pulse" /> : <User size={20} className="text-white" />}
               </div>
               <div>
                 <h1 className="font-bold text-lg leading-tight tracking-wide">PK Navas MLA Office</h1>
-                <p className="text-xs text-blue-100 font-medium tracking-wider uppercase">{isGodMode ? `GOD MODE: ${activeUser.name}` : activeUser.name}</p>
+                <p className="text-xs text-blue-100 font-medium tracking-wider uppercase">{isImpersonating ? `ACTING AS: ${activeUser.name}` : activeUser.name}</p>
               </div>
             </div>
             <div className="flex items-center gap-4">
-              {isGodMode && <button onClick={() => setImpersonatedUser(null)} className="hidden sm:flex items-center gap-1 text-xs bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded border border-white/30 transition-colors font-bold">Exit God Mode</button>}
+              {isImpersonating && <button onClick={() => setImpersonatedUser(null)} className="hidden sm:flex items-center gap-1 text-xs bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded border border-white/30 transition-colors font-bold">Exit Profile</button>}
               <div className="hidden md:flex items-center text-sm text-blue-100 bg-white/10 px-4 py-1.5 rounded-full border border-white/10"><LiveClock /></div>
               <button onClick={handleLogout} className="flex items-center gap-2 text-sm bg-red-500/90 hover:bg-red-600 transition-colors px-4 py-2 rounded-lg font-bold shadow-sm"><LogOut size={16} /> <span className="hidden sm:inline">Logout</span></button>
             </div>
@@ -825,6 +826,16 @@ const AdminDashboard = ({ tasks, updateTask, deleteTask, categories, designation
   const total = tasks.filter(t=>t.taskType!=='direct').length;
   const comp = tasks.filter(t=>t.taskType!=='direct' && t.status==='Completed').length;
   const pend = tasks.filter(t=>t.taskType!=='direct' && t.status==='Pending').length;
+  
+  const uniqueVisitors = useMemo(() => {
+    const phones = new Set();
+    tasks.forEach(t => {
+      if (t.taskType !== 'direct' && t.personalDetails?.mobileNumber) {
+        phones.add(t.personalDetails.mobileNumber.replace(/\D/g, ''));
+      }
+    });
+    return phones.size;
+  }, [tasks]);
 
   return (
     <div className="space-y-6">
@@ -833,7 +844,7 @@ const AdminDashboard = ({ tasks, updateTask, deleteTask, categories, designation
         <button onClick={() => setActiveTab('input')} className={`px-5 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'input' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'}`}><Plus size={16}/> Register Input</button>
         <button onClick={() => setActiveTab('citizens')} className={`px-5 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'citizens' ? 'bg-teal-600 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'}`}><Users size={16}/> Citizen Info</button>
         <button onClick={() => setActiveTab('direct')} className={`px-5 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'direct' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'}`}><Zap size={16}/> Direct Assignments</button>
-        <button onClick={() => setActiveTab('users')} className={`px-5 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'users' ? 'bg-purple-600 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'}`}><Eye size={16}/> Officers / God Mode</button>
+        <button onClick={() => setActiveTab('users')} className={`px-5 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'users' ? 'bg-purple-600 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'}`}><Eye size={16}/> Manage Officers</button>
         <button onClick={() => setActiveTab('settings')} className={`px-5 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'settings' ? 'bg-slate-800 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'}`}><Settings size={16}/> Permissions</button>
         <button onClick={() => setActiveTab('database')} className={`px-5 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'database' ? 'bg-red-600 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'}`}><Database size={16}/> DB & Backup</button>
       </div>
@@ -850,10 +861,11 @@ const AdminDashboard = ({ tasks, updateTask, deleteTask, categories, designation
             </button>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <StatCard title="Total Inputs" value={total} color="blue" icon={<FileText size={24}/>}/>
-            <StatCard title="Completed Inputs" value={comp} color="green" icon={<CheckCircle size={24}/>}/>
-            <StatCard title="Pending Inputs" value={pend} color="red" icon={<Clock size={24}/>}/>
+            <StatCard title="Total Visitors" value={uniqueVisitors} color="indigo" icon={<Users size={24}/>}/>
+            <StatCard title="Completed" value={comp} color="green" icon={<CheckCircle size={24}/>}/>
+            <StatCard title="Pending" value={pend} color="red" icon={<Clock size={24}/>}/>
           </div>
           <AdminGlobalView tasks={tasks.filter(t=>(t.taskType||'input')==='input')} updateTask={updateTask} deleteTask={deleteTask} users={users} triggerPrint={triggerPrint} triggerDetailsPrint={triggerDetailsPrint} categories={categories} />
         </div>
@@ -865,7 +877,7 @@ const AdminDashboard = ({ tasks, updateTask, deleteTask, categories, designation
 
       {activeTab === 'users' && (
         <div className="bg-white p-8 rounded-3xl shadow-lg border border-slate-200 animate-in fade-in">
-          <div className="text-center max-w-2xl mx-auto mb-10"><Shield size={48} className="text-indigo-600 mx-auto mb-4"/><h2 className="text-3xl font-black text-slate-800 mb-2">Officer Directory & God Mode</h2><p className="text-slate-500 font-medium text-lg">Contact officers directly or enter their profile to manage tasks on their behalf.</p></div>
+          <div className="text-center max-w-2xl mx-auto mb-10"><Shield size={48} className="text-indigo-600 mx-auto mb-4"/><h2 className="text-3xl font-black text-slate-800 mb-2">Officer Directory & Access</h2><p className="text-slate-500 font-medium text-lg">Contact officers directly or securely enter their profile to manage tasks on their behalf.</p></div>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
             {users.filter(u=>u.role!=='admin').map(u => (
               <div key={u.id} className="bg-slate-50 border-2 border-slate-200 p-6 rounded-2xl hover:border-indigo-300 transition-all group flex flex-col items-center text-center shadow-sm relative">
@@ -899,7 +911,7 @@ const AdminCitizenDirectory = ({ tasks, triggerCitizenPrint }) => {
     const map = new Map();
     tasks.forEach(t => {
       if (t.taskType === 'direct') return;
-      const phone = t.personalDetails.mobileNumber;
+      const phone = t.personalDetails?.mobileNumber;
       if (!phone) return;
       if (!map.has(phone)) {
         map.set(phone, { ...t.personalDetails, visits: 1, lastVisit: t.createdAt });
@@ -1253,14 +1265,21 @@ const AdminDirectAssignments = ({ users, tasks, addTask, triggerPrint, triggerDe
           </div>
         </div>
       </form>
-      <AdminGlobalView tasks={tasks.filter(t=>t.taskType==='direct')} updateTask={updateTask} deleteTask={deleteTask} users={users} triggerPrint={triggerPrint} triggerDetailsPrint={triggerDetailsPrint} categories={[{id:'Direct Assignment'}]} />
+      <AdminGlobalView tasks={tasks.filter(t=>t.taskType==='direct')} updateTask={updateTask} deleteTask={deleteTask} users={users} triggerPrint={triggerPrint} triggerDetailsPrint={triggerDetailsPrint} categories={['Direct Assignment']} />
     </div>
   );
 };
 
 
 const StatCard = ({ title, value, color, icon }) => {
-  const cMap = { blue: 'bg-blue-50 text-blue-600 border-blue-200', green: 'bg-green-50 text-green-600 border-green-200', amber: 'bg-amber-50 text-amber-600 border-amber-200', red: 'bg-red-50 text-red-600 border-red-200', slate: 'bg-slate-100 text-slate-600 border-slate-300' };
+  const cMap = { 
+    blue: 'bg-blue-50 text-blue-600 border-blue-200', 
+    green: 'bg-green-50 text-green-600 border-green-200', 
+    amber: 'bg-amber-50 text-amber-600 border-amber-200', 
+    red: 'bg-red-50 text-red-600 border-red-200', 
+    slate: 'bg-slate-100 text-slate-600 border-slate-300',
+    indigo: 'bg-indigo-50 text-indigo-600 border-indigo-200' 
+  };
   return (
     <div className={`p-6 rounded-2xl border ${cMap[color]} relative overflow-hidden shadow-sm flex flex-col justify-between`}>
       <div className="absolute -right-4 -top-4 opacity-10 scale-150">{icon}</div><div className="bg-white/60 w-fit p-3 rounded-xl backdrop-blur-sm mb-4 shadow-sm">{icon}</div>
@@ -1323,6 +1342,75 @@ const AdminGlobalView = ({ tasks, updateTask, deleteTask, users, triggerPrint, t
           </div>
         ))}
         {filtered.length === 0 && <div className="col-span-full py-10 text-center text-slate-500 font-bold bg-white rounded-2xl border border-slate-200">No records found.</div>}
+      </div>
+    </div>
+  );
+};
+
+const TaskDetailsModal = ({ task, onClose, updateTask, deleteTask, users, triggerPrint, currentUser, defaultEdit = false }) => {
+  const [isEditing, setIsEditing] = useState(defaultEdit);
+  const [editForm, setEditForm] = useState(task);
+
+  useEffect(() => {
+    const handleEsc = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, [onClose]);
+
+  const canEditDel = currentUser.role === 'admin' || task.status === 'Pending';
+  const canSeeDetails = currentUser.role === 'admin' || currentUser.canSeeReports;
+
+  const saveEdit = () => { updateTask(task.id, editForm); setIsEditing(false); };
+  const delUpd = (uid) => { if(window.confirm('Delete update?')) { const newTl = task.timeline.filter(t => t.id !== uid); updateTask(task.id, { timeline: newTl }); setEditForm({...editForm, timeline: newTl}); } };
+
+  return (
+    <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4 py-10 overflow-y-auto">
+      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl min-h-[50vh] flex flex-col relative overflow-hidden">
+        <div className="bg-slate-900 text-white p-6 flex justify-between items-center shrink-0 sticky top-0 z-50">
+          <div><h2 className="text-2xl font-black">Detailed Report</h2><p className="text-slate-400 font-bold tracking-widest text-xs uppercase mt-1">ID: {task.id}</p></div>
+          <div className="flex gap-3">
+            <button onClick={() => triggerPrint(task)} title="Print" className="bg-white/20 hover:bg-white/30 p-2 rounded-lg"><Printer size={20}/></button>
+            {canEditDel && <button onClick={async () => { if(await deleteTask(task.id)) onClose(); }} title="Delete" className="bg-red-500/20 text-red-300 hover:bg-red-500 hover:text-white p-2 rounded-lg"><Trash2 size={20}/></button>}
+            <button onClick={onClose} title="Close (Esc)" className="bg-white/10 hover:bg-white/30 p-2 rounded-lg text-white border border-white/20 flex items-center gap-1 font-bold pl-3"><X size={20}/> Close</button>
+          </div>
+        </div>
+        <div className="flex flex-col md:flex-row flex-1 overflow-y-auto">
+          <div className={`p-8 ${canSeeDetails ? 'md:w-1/2 border-r border-slate-100' : 'w-full'} space-y-6 bg-slate-50/50`}>
+            <div className="flex justify-between items-center"><h3 className="font-black text-xl text-slate-800">Basic Info</h3>{canEditDel && <button onClick={() => setIsEditing(!isEditing)} className="text-blue-600 font-bold text-sm flex items-center gap-1 bg-blue-50 px-3 py-1.5 rounded-lg"><Edit size={14}/> {isEditing ? 'Cancel Edit' : 'Edit'}</button>}</div>
+            {isEditing ? (
+              <div className="space-y-4">
+                <div><label className="text-xs font-bold text-slate-500 uppercase">Subject</label><input type="text" value={editForm.subject} onChange={e=>setEditForm({...editForm, subject: e.target.value})} className="w-full border p-2 rounded-lg"/></div>
+                <div><label className="text-xs font-bold text-slate-500 uppercase">Category</label><input type="text" value={editForm.category} onChange={e=>setEditForm({...editForm, category: e.target.value})} className="w-full border p-2 rounded-lg"/></div>
+                <div><label className="text-xs font-bold text-slate-500 uppercase">Description</label><textarea value={editForm.description} onChange={e=>setEditForm({...editForm, description: e.target.value})} className="w-full border p-2 rounded-lg h-24"></textarea></div>
+                <button onClick={saveEdit} className="w-full bg-blue-600 text-white font-bold py-3 rounded-xl">Save Changes</button>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                <div><p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Subject</p><p className="font-bold text-slate-800 text-lg">{task.subject || 'N/A'}</p></div>
+                <div><p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Citizen Details</p><p className="font-bold text-slate-800 text-base">{task.personalDetails.name}</p><p className="font-medium text-slate-600">{task.personalDetails.mobileNumber} • {task.personalDetails.place}</p></div>
+                <div><p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Category</p><p className="font-bold text-slate-800">{task.category}</p></div>
+                {task.description && <div><p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Description</p><p className="font-medium text-slate-700 bg-white p-4 rounded-xl border border-slate-200 whitespace-pre-wrap">{task.description}</p></div>}
+                <div><p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Meta</p><p className="font-medium text-slate-600 text-sm">Assigned: <span className="font-bold">{task.assignedTo.map(id => users.find(u=>u.id===id)?.name).join(', ')}</span></p></div>
+              </div>
+            )}
+          </div>
+          {canSeeDetails && (
+            <div className="p-8 md:w-1/2">
+              <h3 className="font-black text-xl text-slate-800 mb-6 flex items-center gap-2"><Activity className="text-blue-600"/> Action Timeline</h3>
+              <div className="relative border-l-2 border-slate-200 ml-3 space-y-8 pb-8">
+                {task.timeline.map((ev) => (
+                  <div key={ev.id} className="relative pl-6">
+                    <div className="absolute -left-[13px] top-0 bg-white border-2 border-white rounded-full"><TimelineIcon type={ev.type} /></div>
+                    <div className="flex justify-between items-start">
+                      <div><p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">{formatDate(ev.time)}</p><p className="font-bold text-slate-800 text-sm">{ev.text}</p><p className="text-xs font-medium text-slate-500 mt-1">by {ev.by}</p></div>
+                      {ev.type === 'update' && canEditDel && <button onClick={()=>delUpd(ev.id)} className="text-red-400 hover:text-red-600 p-1 bg-red-50 rounded-md"><Trash2 size={14}/></button>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -1409,106 +1497,225 @@ const PrintTaskDetailsReport = ({ task, users, onComplete }) => {
   );
 };
 
-const TaskDetailsModal = ({ task, onClose, updateTask, deleteTask, users, triggerPrint, currentUser, defaultEdit = false }) => {
-  const [isEditing, setIsEditing] = useState(defaultEdit);
-  const [editForm, setEditForm] = useState(task);
-
-  useEffect(() => {
-    const handleEsc = (e) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', handleEsc);
-    return () => window.removeEventListener('keydown', handleEsc);
-  }, [onClose]);
-
-  const canEditDel = currentUser.role === 'admin' || task.status === 'Pending';
-  const canSeeDetails = currentUser.role === 'admin' || currentUser.canSeeReports;
-
-  const saveEdit = () => { updateTask(task.id, editForm); setIsEditing(false); };
-  const delUpd = (uid) => { if(window.confirm('Delete update?')) { const newTl = task.timeline.filter(t => t.id !== uid); updateTask(task.id, { timeline: newTl }); setEditForm({...editForm, timeline: newTl}); } };
-
+const PrintAcknowledgeSlip = ({ task, onComplete }) => {
   return (
-    <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4 py-10 overflow-y-auto">
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl min-h-[50vh] flex flex-col relative overflow-hidden">
-        <div className="bg-slate-900 text-white p-6 flex justify-between items-center shrink-0 sticky top-0 z-50">
-          <div><h2 className="text-2xl font-black">Detailed Report</h2><p className="text-slate-400 font-bold tracking-widest text-xs uppercase mt-1">ID: {task.id}</p></div>
-          <div className="flex gap-3">
-            <button onClick={() => triggerPrint(task)} title="Print" className="bg-white/20 hover:bg-white/30 p-2 rounded-lg"><Printer size={20}/></button>
-            {canEditDel && <button onClick={async () => { if(await deleteTask(task.id)) onClose(); }} title="Delete" className="bg-red-500/20 text-red-300 hover:bg-red-500 hover:text-white p-2 rounded-lg"><Trash2 size={20}/></button>}
-            <button onClick={onClose} title="Close (Esc)" className="bg-white/10 hover:bg-white/30 p-2 rounded-lg text-white border border-white/20 flex items-center gap-1 font-bold pl-3"><X size={20}/> Close</button>
-          </div>
-        </div>
-        <div className="flex flex-col md:flex-row flex-1 overflow-y-auto">
-          <div className={`p-8 ${canSeeDetails ? 'md:w-1/2 border-r border-slate-100' : 'w-full'} space-y-6 bg-slate-50/50`}>
-            <div className="flex justify-between items-center"><h3 className="font-black text-xl text-slate-800">Basic Info</h3>{canEditDel && <button onClick={() => setIsEditing(!isEditing)} className="text-blue-600 font-bold text-sm flex items-center gap-1 bg-blue-50 px-3 py-1.5 rounded-lg"><Edit size={14}/> {isEditing ? 'Cancel Edit' : 'Edit'}</button>}</div>
-            {isEditing ? (
-              <div className="space-y-4">
-                <div><label className="text-xs font-bold text-slate-500 uppercase">Subject</label><input type="text" value={editForm.subject} onChange={e=>setEditForm({...editForm, subject: e.target.value})} className="w-full border p-2 rounded-lg"/></div>
-                <div><label className="text-xs font-bold text-slate-500 uppercase">Category</label><input type="text" value={editForm.category} onChange={e=>setEditForm({...editForm, category: e.target.value})} className="w-full border p-2 rounded-lg"/></div>
-                <div><label className="text-xs font-bold text-slate-500 uppercase">Description</label><textarea value={editForm.description} onChange={e=>setEditForm({...editForm, description: e.target.value})} className="w-full border p-2 rounded-lg h-24"></textarea></div>
-                <button onClick={saveEdit} className="w-full bg-blue-600 text-white font-bold py-3 rounded-xl">Save Changes</button>
-              </div>
-            ) : (
-              <div className="space-y-6">
-                <div><p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Subject</p><p className="font-bold text-slate-800 text-lg">{task.subject || 'N/A'}</p></div>
-                <div><p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Citizen Details</p><p className="font-bold text-slate-800 text-base">{task.personalDetails.name}</p><p className="font-medium text-slate-600">{task.personalDetails.mobileNumber} • {task.personalDetails.place}</p></div>
-                <div><p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Category</p><p className="font-bold text-slate-800">{task.category}</p></div>
-                {task.description && <div><p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Description</p><p className="font-medium text-slate-700 bg-white p-4 rounded-xl border border-slate-200 whitespace-pre-wrap">{task.description}</p></div>}
-                <div><p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Meta</p><p className="font-medium text-slate-600 text-sm">Assigned: <span className="font-bold">{task.assignedTo.map(id => users.find(u=>u.id===id)?.name).join(', ')}</span></p></div>
-              </div>
-            )}
-          </div>
-          {canSeeDetails && (
-            <div className="p-8 md:w-1/2">
-              <h3 className="font-black text-xl text-slate-800 mb-6 flex items-center gap-2"><Activity className="text-blue-600"/> Action Timeline</h3>
-              <div className="relative border-l-2 border-slate-200 ml-3 space-y-8 pb-8">
-                {task.timeline.map((ev) => (
-                  <div key={ev.id} className="relative pl-6">
-                    <div className="absolute -left-[13px] top-0 bg-white border-2 border-white rounded-full"><TimelineIcon type={ev.type} /></div>
-                    <div className="flex justify-between items-start">
-                      <div><p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">{formatDate(ev.time)}</p><p className="font-bold text-slate-800 text-sm">{ev.text}</p><p className="text-xs font-medium text-slate-500 mt-1">by {ev.by}</p></div>
-                      {ev.type === 'update' && canEditDel && <button onClick={()=>delUpd(ev.id)} className="text-red-400 hover:text-red-600 p-1 bg-red-50 rounded-md"><Trash2 size={14}/></button>}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
+    <div className="hidden print:flex fixed inset-0 bg-white z-[9999] text-slate-900 font-sans flex-col h-[100vh] w-full">
+      <button onClick={onComplete} className="print:hidden absolute top-0 left-0 bg-red-500 text-white z-[10000] p-2">Close Print View</button>
+      <style>{`
+          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+          @media print {
+             @page { margin: 0; size: A4 portrait; }
+             body { -webkit-print-color-adjust: exact; font-family: 'Inter', sans-serif; }
+          }
+      `}</style>
+
+      {/* 75% Top - Office Copy */}
+      <div className="h-[75%] p-10 flex flex-col relative box-border overflow-hidden">
+         <div className="text-center border-b-2 border-slate-800 pb-4 mb-6 shrink-0">
+            <h1 className="text-2xl font-black tracking-widest uppercase text-slate-900">PK Navas MLA Office</h1>
+            <h2 className="text-xs font-bold tracking-widest text-slate-500 uppercase mt-1">Official Office Copy</h2>
+         </div>
+
+         <div className="flex justify-between items-center mb-6 bg-slate-50 p-4 border border-slate-200 rounded-lg shrink-0">
+             <div><p className="text-[10px] text-slate-500 uppercase font-black tracking-widest">Reference ID</p><p className="text-xl font-black text-slate-900">{task.id}</p></div>
+             <div className="text-right"><p className="text-[10px] text-slate-500 uppercase font-black tracking-widest">Date</p><p className="text-base font-bold text-slate-800">{formatDate(task.createdAt)}</p></div>
+         </div>
+
+         <div className="grid grid-cols-2 gap-x-8 gap-y-4 text-sm mb-6 shrink-0">
+             <div><span className="text-slate-500 font-bold block text-[10px] uppercase tracking-wider mb-1">Citizen Name</span> <strong className="text-base">{task.personalDetails.name}</strong> {task.personalDetails.designation && <span className="text-[10px] bg-slate-200 px-1 rounded ml-1 uppercase">{task.personalDetails.designation}</span>}</div>
+             <div><span className="text-slate-500 font-bold block text-[10px] uppercase tracking-wider mb-1">Contact</span> <strong>{task.personalDetails.mobileNumber}</strong></div>
+             <div><span className="text-slate-500 font-bold block text-[10px] uppercase tracking-wider mb-1">Referral</span> <strong>{task.personalDetails.referralPerson || '-'}</strong></div>
+             <div><span className="text-slate-500 font-bold block text-[10px] uppercase tracking-wider mb-1">Address</span> <strong>{task.personalDetails.place || '-'}, {task.personalDetails.panchayat || '-'}</strong></div>
+         </div>
+
+         <div className="mb-4 shrink-0">
+            <span className="text-slate-500 font-bold block text-[10px] uppercase tracking-wider mb-1">Category & Type</span>
+            <div className="font-bold text-slate-800"><span className="bg-slate-200 px-2 py-0.5 rounded text-xs mr-2">{task.types.join(', ')}</span> {task.category}</div>
+         </div>
+
+         <div className="mb-6 flex-1 min-h-[100px] flex flex-col">
+            <span className="text-slate-500 font-bold block text-[10px] uppercase tracking-wider mb-1">Subject & Description</span>
+            <div className="font-bold text-slate-800 mb-2">{task.subject || '-'}</div>
+            {task.description && <div className="p-3 border border-slate-200 bg-slate-50 rounded-lg text-xs whitespace-pre-wrap flex-1">{task.description}</div>}
+         </div>
+
+         <div className="mt-auto flex justify-between pt-8 shrink-0">
+            <div className="text-center"><div className="w-40 border-t-2 border-slate-800 pt-2 font-bold uppercase text-[10px] tracking-widest">Citizen Sign</div></div>
+            <div className="text-center"><div className="w-40 border-t-2 border-slate-800 pt-2 font-bold uppercase text-[10px] tracking-widest">Office Seal & Sign</div></div>
+         </div>
+      </div>
+
+      {/* Scissor Divider */}
+      <div className="border-t-2 border-dashed border-slate-400 relative shrink-0">
+         <div className="absolute left-1/2 -top-3 -translate-x-1/2 bg-white px-4 text-slate-400 flex items-center gap-2"><Scissors size={18}/><span className="text-[10px] font-black uppercase tracking-widest">Cut Here</span></div>
+      </div>
+
+      {/* 25% Bottom - Citizen Copy */}
+      <div className="h-[25%] p-10 bg-slate-50 flex flex-col justify-center box-border">
+         <div className="flex justify-between items-start mb-4">
+             <div>
+                <h1 className="text-xl font-black tracking-widest uppercase text-slate-900">PK Navas MLA Office</h1>
+                <p className="text-[10px] font-bold tracking-widest text-slate-500 uppercase mt-1">Citizen Token</p>
+             </div>
+             <div className="text-right">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Ref ID</p>
+                <p className="text-xl font-black text-slate-900 bg-white border border-slate-200 px-3 py-1 rounded-lg">{task.id}</p>
+             </div>
+         </div>
+         <div className="grid grid-cols-2 gap-y-2 gap-x-8 text-xs mb-4">
+             <div><span className="text-slate-500 font-bold">Name:</span> <strong className="text-sm">{task.personalDetails.name}</strong></div>
+             <div><span className="text-slate-500 font-bold">Date:</span> <strong>{formatDate(task.createdAt)}</strong></div>
+             <div><span className="text-slate-500 font-bold">Category:</span> <strong>{task.category}</strong></div>
+             <div className="truncate"><span className="text-slate-500 font-bold">Subject:</span> <strong>{task.subject}</strong></div>
+         </div>
+         <p className="text-[11px] text-center text-slate-500 font-medium italic mt-auto border-t border-slate-200 pt-4">Thank you for visiting. Your request has been securely registered.</p>
       </div>
     </div>
   );
 };
 
-const AdminSettings = ({ users, updateUserDoc }) => {
-  const handleToggle = (id, field) => {
-    const u = users.find(u => u.id === id);
-    updateUserDoc(id, field, !u[field]);
-  };
-  const handleChange = (id, field, value) => updateUserDoc(id, field, value);
+// --- PRINT MASTER REPORT ---
+const PrintMasterReport = ({ config, tasks, users, categories, onComplete }) => {
+  // 1. Filter tasks by date range
+  const filteredTasks = useMemo(() => {
+    let now = new Date();
+    let past = new Date();
+    if (config.range === '1week') past.setDate(now.getDate() - 7);
+    if (config.range === '1month') past.setMonth(now.getMonth() - 1);
+    if (config.range === '6months') past.setMonth(now.getMonth() - 6);
+    
+    return tasks.filter(t => {
+      const d = new Date(t.createdAt);
+      if (config.range === 'custom') {
+        const start = config.customStart ? new Date(config.customStart) : new Date(0);
+        const end = config.customEnd ? new Date(config.customEnd) : new Date();
+        end.setHours(23,59,59);
+        return d >= start && d <= end;
+      }
+      if (config.range !== 'all') return d >= past;
+      return true;
+    }).sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
+  }, [tasks, config]);
+
+  // 2. Global Stats
+  const total = filteredTasks.length;
+  const comp = filteredTasks.filter(t => t.status === 'Completed').length;
+  const inprog = filteredTasks.filter(t => t.status === 'In Progress').length;
+  const pend = filteredTasks.filter(t => t.status === 'Pending').length;
+  const unsolv = filteredTasks.filter(t => t.status === 'Unsolved').length;
+  const overdue = filteredTasks.filter(t => t.deadline && new Date(t.deadline) < new Date() && t.status !== 'Completed').length;
+
+  // 3. Category Stats
+  const catStats = categories.map(cat => ({
+    name: cat, count: filteredTasks.filter(t => t.category === cat).length
+  })).sort((a,b)=>b.count-a.count);
+
+  // 4. Staff Performance
+  const staffPerf = users.filter(u=>u.role!=='admin').map(u => {
+    const assigned = filteredTasks.filter(t => t.assignedTo.includes(u.id));
+    const uComp = assigned.filter(t => t.officerStatuses && t.officerStatuses[u.id] === 'Completed').length;
+    const rate = assigned.length ? ((uComp / assigned.length) * 100).toFixed(0) : 0;
+    return { name: u.name, total: assigned.length, completed: uComp, rate: Number(rate) };
+  }).sort((a,b)=>b.rate - a.rate);
+  
+  const topPerf = staffPerf.length && staffPerf[0].total > 0 ? staffPerf[0].name : 'N/A';
+
+  const rangeLabel = { all: 'All Time', '1week': 'Last 7 Days', '1month': 'Last 30 Days', '6months': 'Last 6 Months', custom: `Custom Range (${config.customStart} to ${config.customEnd})` };
 
   return (
-    <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-8 animate-in fade-in">
-      <div className="mb-8 border-b border-slate-100 pb-6"><h2 className="text-2xl font-black text-slate-800 flex items-center gap-2"><Settings className="text-indigo-600"/> Security & Contacts</h2></div>
-      <div className="space-y-6">
-        {users.filter(u => u.role !== 'admin').map(u => (
-          <div key={u.id} className={`p-6 rounded-2xl border transition-all ${!u.enabled ? 'bg-slate-50 border-slate-200 opacity-60' : 'bg-white border-slate-200 hover:border-indigo-300'}`}>
-            <div className="flex flex-col lg:flex-row gap-6 justify-between items-start">
-              <div className="flex-1 space-y-4 w-full">
-                <div className="flex items-center justify-between"><span className="font-black text-lg text-slate-800">{u.id.toUpperCase()}</span><button onClick={() => handleToggle(u.id, 'enabled')} className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest border ${u.enabled ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>{u.enabled ? 'Disable' : 'Enable'}</button></div>
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Display Name</label><input type="text" value={u.name} onChange={e=>handleChange(u.id, 'name', e.target.value)} disabled={!u.enabled} className="w-full px-3 py-2 border border-slate-300 rounded-lg font-bold outline-none focus:border-indigo-500 disabled:bg-slate-100"/></div>
-                  <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Password</label><input type="text" value={u.pass} onChange={e=>handleChange(u.id, 'pass', e.target.value)} disabled={!u.enabled} className="w-full px-3 py-2 border border-slate-300 rounded-lg font-bold text-slate-600 outline-none focus:border-indigo-500 disabled:bg-slate-100"/></div>
-                  <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Phone Number</label><input type="text" value={u.phone} onChange={e=>handleChange(u.id, 'phone', e.target.value)} disabled={!u.enabled} className="w-full px-3 py-2 border border-slate-300 rounded-lg font-bold outline-none focus:border-indigo-500"/></div>
-                  <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">WhatsApp Number</label><input type="text" value={u.whatsapp} onChange={e=>handleChange(u.id, 'whatsapp', e.target.value)} disabled={!u.enabled} className="w-full px-3 py-2 border border-slate-300 rounded-lg font-bold outline-none focus:border-indigo-500"/></div>
-                </div>
-              </div>
-              <div className="flex-1 w-full lg:w-auto bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
-                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 border-b border-slate-200 pb-2">Capabilities</h4>
-                <label className="flex items-center justify-between cursor-pointer"><span className="text-sm font-bold text-slate-700">Can Input</span><input type="checkbox" checked={u.canInput} onChange={()=>handleToggle(u.id, 'canInput')} className="w-4 h-4"/></label>
-                <label className="flex items-center justify-between cursor-pointer"><span className="text-sm font-bold text-slate-700">Detailed Reports</span><input type="checkbox" checked={u.canSeeReports} onChange={()=>handleToggle(u.id, 'canSeeReports')} className="w-4 h-4"/></label>
-              </div>
+    <div className="hidden print:block fixed inset-0 bg-white z-[9999] text-slate-900 overflow-visible font-sans">
+      <button onClick={onComplete} className="print:hidden absolute top-0 left-0 bg-red-500 text-white z-[10000] p-2">Close Report View</button>
+      <style>{`
+          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+          @media print {
+             @page { margin: 0; size: A4 portrait; }
+             body { -webkit-print-color-adjust: exact; font-family: 'Inter', sans-serif; }
+          }
+      `}</style>
+      
+      <div className="p-8 max-w-[210mm] mx-auto bg-white min-h-[297mm] flex flex-col">
+        {/* Header */}
+        <div className="text-center border-b-4 border-slate-800 pb-4 mb-6">
+          <h1 className="text-3xl font-black uppercase tracking-widest mb-1">MLA Office - Tanur</h1>
+          <h2 className="text-lg font-bold text-slate-600 uppercase tracking-widest">Master Performance Report</h2>
+          <p className="mt-2 text-xs font-medium text-slate-500 uppercase tracking-wider"><strong>Period:</strong> {rangeLabel[config.range]} | <strong>Generated:</strong> {new Date().toLocaleString('en-IN')}</p>
+        </div>
+
+        {/* Global Summary */}
+        <h3 className="text-sm font-black bg-slate-100 p-2 uppercase tracking-widest mb-4 text-center rounded">Global Overview</h3>
+        <div className="grid grid-cols-5 gap-2 mb-8 text-center">
+          <div className="border border-slate-300 rounded-lg p-3 bg-slate-50"><p className="text-2xl font-black">{total}</p><p className="text-[9px] font-black text-slate-500 uppercase tracking-wider mt-1">Total Inputs</p></div>
+          <div className="border border-slate-300 rounded-lg p-3 bg-slate-50"><p className="text-2xl font-black">{comp}</p><p className="text-[9px] font-black text-slate-500 uppercase tracking-wider mt-1">Completed</p></div>
+          <div className="border border-slate-300 rounded-lg p-3 bg-slate-50"><p className="text-2xl font-black">{inprog}</p><p className="text-[9px] font-black text-slate-500 uppercase tracking-wider mt-1">In Progress</p></div>
+          <div className="border border-slate-300 rounded-lg p-3 bg-slate-50"><p className="text-2xl font-black">{pend}</p><p className="text-[9px] font-black text-slate-500 uppercase tracking-wider mt-1">Pending</p></div>
+          <div className="border border-red-200 rounded-lg p-3 bg-red-50"><p className="text-2xl font-black text-red-600">{overdue}</p><p className="text-[9px] font-black text-red-500 uppercase tracking-wider mt-1">Overdue</p></div>
+        </div>
+
+        {/* Staff Performance */}
+        <h3 className="text-sm font-black bg-slate-100 p-2 uppercase tracking-widest mb-4 text-center rounded">Staff Performance Analytics</h3>
+        <div className="mb-4 text-center">
+          <p className="font-bold text-sm">Top Performing Officer: <span className="bg-slate-800 text-white px-3 py-1 rounded-full ml-1 text-xs uppercase tracking-wider">{topPerf}</span></p>
+        </div>
+        <table className="w-full text-sm border-collapse border border-slate-300 mb-8 rounded-lg overflow-hidden">
+          <thead>
+            <tr className="bg-slate-100 text-slate-600 uppercase tracking-wider text-[10px]">
+              <th className="border border-slate-300 p-3 text-left font-black">Officer Name</th>
+              <th className="border border-slate-300 p-3 text-center font-black">Assigned</th>
+              <th className="border border-slate-300 p-3 text-center font-black">Completed</th>
+              <th className="border border-slate-300 p-3 text-center font-black">Success Rate</th>
+            </tr>
+          </thead>
+          <tbody>
+            {staffPerf.map((s,i) => (
+              <tr key={i} className="bg-white">
+                <td className="border border-slate-300 p-3 font-bold">{s.name}</td>
+                <td className="border border-slate-300 p-3 text-center">{s.total}</td>
+                <td className="border border-slate-300 p-3 text-center">{s.completed}</td>
+                <td className="border border-slate-300 p-3 text-center font-black">{s.rate}%</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        {/* Categories */}
+        <h3 className="text-sm font-black bg-slate-100 p-2 uppercase tracking-widest mb-4 text-center rounded break-inside-avoid">Input Categories Breakdown</h3>
+        <div className="grid grid-cols-2 gap-x-8 gap-y-2 mb-8 break-inside-avoid">
+          {catStats.filter(c=>c.count>0).map((c,i) => (
+            <div key={i} className="flex justify-between border-b border-slate-200 py-1 text-sm font-semibold">
+              <span className="text-slate-600">{c.name}</span><span className="font-black">{c.count}</span>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
+
+        {/* Detailed Breakdown */}
+        <h3 className="text-sm font-black bg-slate-100 p-2 uppercase tracking-widest mb-4 text-center rounded break-inside-avoid">Recent Records Highlight</h3>
+        <table className="w-full text-[10px] border-collapse border border-slate-300 break-inside-avoid rounded-lg overflow-hidden">
+          <thead>
+            <tr className="bg-slate-100 text-slate-600 uppercase tracking-wider">
+              <th className="border border-slate-300 p-2 text-left font-black">ID & Date</th>
+              <th className="border border-slate-300 p-2 text-left font-black">Subject / Citizen</th>
+              <th className="border border-slate-300 p-2 text-left font-black">Assigned</th>
+              <th className="border border-slate-300 p-2 text-center font-black">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredTasks.slice(0, 20).map(t => (
+              <tr key={t.id} className="bg-white">
+                <td className="border border-slate-300 p-2 whitespace-nowrap"><strong className="block text-slate-800">{t.id}</strong><span className="text-slate-500">{formatDate(t.createdAt)}</span></td>
+                <td className="border border-slate-300 p-2"><strong className="block text-slate-800 truncate max-w-[200px]">{t.subject || 'No Subject'}</strong><span className="text-slate-500">{t.personalDetails.name}</span></td>
+                <td className="border border-slate-300 p-2 text-slate-700 font-semibold">{t.assignedTo.map(id => users.find(u=>u.id===id)?.name.split(' ')[0]).join(', ')}</td>
+                <td className="border border-slate-300 p-2 text-center font-bold">{t.status}</td>
+              </tr>
+            ))}
+            {filteredTasks.length > 20 && <tr><td colSpan="4" className="border border-slate-300 p-3 text-center italic text-slate-500 font-medium">... and {filteredTasks.length - 20} more records omitted for brevity.</td></tr>}
+            {filteredTasks.length === 0 && <tr><td colSpan="4" className="border border-slate-300 p-4 text-center italic text-slate-500 font-medium">No records found in this date range.</td></tr>}
+          </tbody>
+        </table>
+
+        {/* Footer */}
+        <div className="mt-auto pt-12 text-center text-[10px] font-bold uppercase tracking-widest text-slate-300">
+          *** End of Master Report ***
+        </div>
       </div>
     </div>
   );

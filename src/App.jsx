@@ -387,12 +387,16 @@ const LoginScreen = ({ onLogin, users }) => {
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col">
+      <style dangerouslySetInnerHTML={{ __html: `
+        @import url('https://fonts.googleapis.com/css2?family=Anek+Malayalam:wght@300;400;500;600;700&family=Scheherazade+New:wght@400;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+      ` }} />
       <div className="w-full bg-slate-900 text-center py-4 px-4 shadow-md z-20 flex items-center justify-center min-h-[80px] lg:min-h-[90px]">
         <div key={quoteIndex} className="animate-in fade-in duration-1000 max-w-6xl mx-auto flex flex-col items-center gap-2">
           <p className="text-base md:text-lg lg:text-xl text-blue-100 leading-tight drop-shadow-sm" dir="rtl" style={{ fontFamily: "'Scheherazade New', serif" }}>
             {ISLAMIC_QUOTES[quoteIndex].arabic}
           </p>
-          <p className="text-xs md:text-sm lg:text-base font-light text-slate-300 tracking-wide" style={{ fontFamily: "'Anek Malayalam', sans-serif" }}>
+          <p className="text-xs md:text-sm lg:text-base font-normal text-slate-300 tracking-wide" style={{ fontFamily: "'Anek Malayalam', sans-serif" }}>
             {ISLAMIC_QUOTES[quoteIndex].malayalam}
           </p>
         </div>

@@ -140,14 +140,20 @@ export default function App() {
   const [designations, setDesignations] = useState(DEFAULT_DESIGNATIONS);
   const [backupMeta, setBackupMeta] = useState({ lastBackup: null, lastBackupType: null, lastImport: null });
   
+  // View states
+  const [viewingTask, setViewingTask] = useState(null);
+
+  // Print states
   const [taskToPrint, setTaskToPrint] = useState(null);
   const [taskDetailsToPrint, setTaskDetailsToPrint] = useState(null);
-  const [viewingTask, setViewingTask] = useState(null);
   const [masterReportConfig, setMasterReportConfig] = useState(null);
   const [citizenDirectoryToPrint, setCitizenDirectoryToPrint] = useState(null);
 
-  // Global print state listener
-  const [isPrintingMode, setIsPrintingMode] = useState(false);
+  // Download states
+  const [taskToDownload, setTaskToDownload] = useState(null);
+  const [taskDetailsToDownload, setTaskDetailsToDownload] = useState(null);
+  const [masterReportConfigToDownload, setMasterReportConfigToDownload] = useState(null);
+  const [citizenDirectoryToDownload, setCitizenDirectoryToDownload] = useState(null);
 
   useEffect(() => {
     const initAuth = async () => {
@@ -192,18 +198,69 @@ export default function App() {
     return () => { unsubTasks(); unsubUsers(); unsubSettings(); unsubBackupMeta(); };
   }, [fbUser]);
 
+  // Native Print Engine Listener
   useEffect(() => { 
     if (taskToPrint || taskDetailsToPrint || masterReportConfig || citizenDirectoryToPrint) {
-      setIsPrintingMode(true);
-      setTimeout(() => {
-        window.print();
-        // Give a slight delay to safely reset print mode if desired, but 
-        // relying on manual close via 'Close Print View' button is safer for user UX.
-      }, 600); 
-    } else {
-      setIsPrintingMode(false);
+      const timer = setTimeout(() => window.print(), 300); 
+      return () => clearTimeout(timer);
     }
   }, [taskToPrint, taskDetailsToPrint, masterReportConfig, citizenDirectoryToPrint]);
+
+  useEffect(() => {
+    const handleAfterPrint = () => {
+      setTaskToPrint(null);
+      setTaskDetailsToPrint(null);
+      setMasterReportConfig(null);
+      setCitizenDirectoryToPrint(null);
+    };
+    window.addEventListener('afterprint', handleAfterPrint);
+    return () => window.removeEventListener('afterprint', handleAfterPrint);
+  }, []);
+
+  // Direct PDF Download Engine via html2pdf
+  useEffect(() => {
+    const downloadState = taskToDownload || taskDetailsToDownload || masterReportConfigToDownload || citizenDirectoryToDownload;
+    if (!downloadState) return;
+
+    const targetId = taskToDownload ? 'dl-ack-slip' : 
+                     taskDetailsToDownload ? 'dl-details-report' :
+                     masterReportConfigToDownload ? 'dl-master-report' :
+                     citizenDirectoryToDownload ? 'dl-citizen-dir' : null;
+                     
+    const filename = taskToDownload ? `Acknowledge_${taskToDownload.id}` : 
+                     taskDetailsToDownload ? `Detailed_Report_${taskDetailsToDownload.id}` :
+                     masterReportConfigToDownload ? `Master_Performance_Report` :
+                     citizenDirectoryToDownload ? `Citizen_Directory` : 'Document';
+
+    const generatePDF = () => {
+      const el = document.getElementById(targetId);
+      if(!el) return;
+      const opt = {
+        margin:       10,
+        filename:     `${filename}.pdf`,
+        image:        { type: 'jpeg', quality: 1 },
+        html2canvas:  { scale: 2, useCORS: true },
+        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] }
+      };
+      
+      window.html2pdf().set(opt).from(el).save().then(() => {
+        setTaskToDownload(null);
+        setTaskDetailsToDownload(null);
+        setMasterReportConfigToDownload(null);
+        setCitizenDirectoryToDownload(null);
+      });
+    };
+
+    if (window.html2pdf) {
+      setTimeout(generatePDF, 300); // Allow DOM to render hidden elements first
+    } else {
+      const script = document.createElement('script');
+      script.src = "https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js";
+      script.onload = () => setTimeout(generatePDF, 300);
+      document.head.appendChild(script);
+    }
+  }, [taskToDownload, taskDetailsToDownload, masterReportConfigToDownload, citizenDirectoryToDownload]);
 
   const handleLogin = (user) => {
     setCurrentUser(user);
@@ -242,42 +299,39 @@ export default function App() {
   const activeUser = impersonatedUser || liveCurrentUser;
   const isImpersonating = !!impersonatedUser;
 
-  // Unified Print Trigger
-  const triggerDownloadPDF = () => {
-    alert("To save as PDF:\n1. The print window will open.\n2. Change the 'Destination' or 'Printer' to 'Save as PDF'.\n3. Click Save.");
-    setTimeout(() => window.print(), 300);
-  };
-
   if (!activeUser) return <LoginScreen onLogin={handleLogin} users={users} />;
 
   return (
     <>
-      {/* Print specific styling added here so that standard app layout stays perfect,
-        but during print rendering, borders, backgrounds and page-breaks act professionally.
-      */}
+      {/* PERFECT PRINT & OFF-SCREEN CSS */}
       <style dangerouslySetInnerHTML={{ __html: `
           @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
           @media print {
              @page { margin: 15mm; size: A4 portrait; }
              body, html { -webkit-print-color-adjust: exact; print-color-adjust: exact; font-family: 'Inter', sans-serif; background: white; margin: 0; padding: 0; }
              .print-hidden { display: none !important; }
-             .print-only { display: block !important; }
+             .print-block { display: block !important; }
              .break-inside-avoid { page-break-inside: avoid; break-inside: avoid; }
-             .page-break-before { page-break-before: always; }
           }
       ` }} />
 
-      {/* --- PRINT COMPONENTS --- */}
-      {taskToPrint && <PrintAcknowledgeSlip task={taskToPrint} onComplete={()=>setTaskToPrint(null)} />}
-      {taskDetailsToPrint && <PrintTaskDetailsReport task={taskDetailsToPrint} users={users} onComplete={()=>setTaskDetailsToPrint(null)} />}
-      {masterReportConfig && <PrintMasterReport config={masterReportConfig} tasks={tasks} users={users} categories={categories} onComplete={() => setMasterReportConfig(null)} />}
-      {citizenDirectoryToPrint && <PrintCitizenDirectory citizens={citizenDirectoryToPrint} onComplete={() => setCitizenDirectoryToPrint(null)} />}
+      {/* --- PRINT COMPONENTS (Visible Only to Print Engine) --- */}
+      {taskToPrint && <PrintAcknowledgeSlip task={taskToPrint} mode="print" />}
+      {taskDetailsToPrint && <PrintTaskDetailsReport task={taskDetailsToPrint} users={users} mode="print" />}
+      {masterReportConfig && <PrintMasterReport config={masterReportConfig} tasks={tasks} users={users} categories={categories} mode="print" />}
+      {citizenDirectoryToPrint && <PrintCitizenDirectory citizens={citizenDirectoryToPrint} mode="print" />}
       
-      {/* MODAL (Hidden entirely during print so it doesn't overlap or look like a screenshot) */}
-      {viewingTask && !isPrintingMode && <TaskDetailsModal task={tasks.find(t => t.id === viewingTask.id) || viewingTask} onClose={() => setViewingTask(null)} updateTask={updateTask} deleteTask={deleteTask} users={users} triggerDetailsPrint={setTaskDetailsToPrint} triggerDownloadPDF={triggerDownloadPDF} currentUser={activeUser} />}
+      {/* --- DOWNLOAD COMPONENTS (Rendered Off-Screen for PDF Capture) --- */}
+      {taskToDownload && <PrintAcknowledgeSlip task={taskToDownload} id="dl-ack-slip" mode="download" />}
+      {taskDetailsToDownload && <PrintTaskDetailsReport task={taskDetailsToDownload} users={users} id="dl-details-report" mode="download" />}
+      {masterReportConfigToDownload && <PrintMasterReport config={masterReportConfigToDownload} tasks={tasks} users={users} categories={categories} id="dl-master-report" mode="download" />}
+      {citizenDirectoryToDownload && <PrintCitizenDirectory citizens={citizenDirectoryToDownload} id="dl-citizen-dir" mode="download" />}
+
+      {/* --- MODAL FOR VIEW DETAILS --- */}
+      {viewingTask && <TaskDetailsModal task={tasks.find(t => t.id === viewingTask.id) || viewingTask} onClose={() => setViewingTask(null)} updateTask={updateTask} deleteTask={deleteTask} users={users} triggerDetailsPrint={setTaskDetailsToPrint} triggerDownloadPDF={setTaskDetailsToDownload} currentUser={activeUser} />}
 
       {/* --- MAIN APP WRAPPER --- */}
-      <div className={`min-h-screen bg-slate-100 font-sans text-slate-800 flex flex-col print-hidden ${isPrintingMode ? 'hidden' : 'flex'}`}>
+      <div className={`min-h-screen bg-slate-100 font-sans text-slate-800 flex flex-col print-hidden`}>
         <header className={`${isImpersonating ? 'bg-gradient-to-r from-red-900 to-orange-800' : 'bg-gradient-to-r from-blue-900 via-indigo-800 to-purple-900'} text-white shadow-md transition-colors`}>
           <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -299,9 +353,9 @@ export default function App() {
 
         <main className="flex-grow max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
           {activeUser.role === 'admin' ? (
-            <AdminDashboard tasks={tasks} updateTask={updateTask} deleteTask={deleteTask} categories={categories} designations={designations} users={users} updateUserDoc={updateUserDoc} setImpersonatedUser={setImpersonatedUser} triggerPrint={setTaskToPrint} triggerDetailsPrint={setTaskDetailsToPrint} triggerViewDetails={setViewingTask} triggerDownloadPDF={triggerDownloadPDF} addTask={addTask} addCategory={addCategory} addDesignation={addDesignation} triggerMasterReport={setMasterReportConfig} backupMeta={backupMeta} updateBackupMeta={updateBackupMeta} triggerCitizenPrint={setCitizenDirectoryToPrint} />
+            <AdminDashboard tasks={tasks} updateTask={updateTask} deleteTask={deleteTask} categories={categories} designations={designations} users={users} updateUserDoc={updateUserDoc} setImpersonatedUser={setImpersonatedUser} triggerPrint={setTaskToPrint} triggerDownloadPDF={setTaskToDownload} triggerDetailsPrint={setTaskDetailsToPrint} triggerDetailsDownload={setTaskDetailsToDownload} triggerViewDetails={setViewingTask} addTask={addTask} addCategory={addCategory} addDesignation={addDesignation} triggerMasterReport={setMasterReportConfig} triggerMasterDownload={setMasterReportConfigToDownload} backupMeta={backupMeta} updateBackupMeta={updateBackupMeta} triggerCitizenPrint={setCitizenDirectoryToPrint} triggerCitizenDownload={setCitizenDirectoryToDownload} />
           ) : (
-            <OfficerDashboard user={activeUser} tasks={tasks} updateTask={updateTask} deleteTask={deleteTask} categories={categories} designations={designations} users={users} addTask={addTask} addCategory={addCategory} addDesignation={addDesignation} triggerPrint={setTaskToPrint} triggerDetailsPrint={setTaskDetailsToPrint} triggerViewDetails={setViewingTask} triggerDownloadPDF={triggerDownloadPDF} isAdminOverride={currentUser.role === 'admin'} />
+            <OfficerDashboard user={activeUser} tasks={tasks} updateTask={updateTask} deleteTask={deleteTask} categories={categories} designations={designations} users={users} addTask={addTask} addCategory={addCategory} addDesignation={addDesignation} triggerPrint={setTaskToPrint} triggerDownloadPDF={setTaskToDownload} triggerDetailsPrint={setTaskDetailsToPrint} triggerDetailsDownload={setTaskDetailsToDownload} triggerViewDetails={setViewingTask} isAdminOverride={currentUser.role === 'admin'} />
           )}
         </main>
         
@@ -333,10 +387,6 @@ const LoginScreen = ({ onLogin, users }) => {
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col">
-      <style dangerouslySetInnerHTML={{ __html: `
-        @import url('https://fonts.googleapis.com/css2?family=Anek+Malayalam:wght@300;400;500;600;700&family=Scheherazade+New:wght@400;700&display=swap');
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
-      ` }} />
       <div className="w-full bg-slate-900 text-center py-4 px-4 shadow-md z-20 flex items-center justify-center min-h-[80px] lg:min-h-[90px]">
         <div key={quoteIndex} className="animate-in fade-in duration-1000 max-w-6xl mx-auto flex flex-col items-center gap-2">
           <p className="text-base md:text-lg lg:text-xl text-blue-100 leading-tight drop-shadow-sm" dir="rtl" style={{ fontFamily: "'Scheherazade New', serif" }}>
@@ -406,7 +456,7 @@ const LoginScreen = ({ onLogin, users }) => {
 };
 
 // --- COMBINED OFFICER DASHBOARD ---
-const OfficerDashboard = ({ user, tasks, updateTask, deleteTask, categories, designations, users, addTask, addCategory, addDesignation, triggerPrint, triggerDetailsPrint, triggerViewDetails, triggerDownloadPDF, isAdminOverride }) => {
+const OfficerDashboard = ({ user, tasks, updateTask, deleteTask, categories, designations, users, addTask, addCategory, addDesignation, triggerPrint, triggerDownloadPDF, triggerDetailsPrint, triggerDetailsDownload, triggerViewDetails, isAdminOverride }) => {
   const [activeTab, setActiveTab] = useState(user.canInput ? 'input' : 'tasks');
 
   return (
@@ -421,7 +471,7 @@ const OfficerDashboard = ({ user, tasks, updateTask, deleteTask, categories, des
       {activeTab === 'input' && user.canInput && <InputFormTab addTask={addTask} categories={categories} designations={designations} addCategory={addCategory} addDesignation={addDesignation} users={users} triggerPrint={triggerPrint} triggerDownloadPDF={triggerDownloadPDF} creator={user} />}
       {activeTab === 'tasks' && <WorkerTab user={user} tasks={tasks} updateTask={updateTask} isAdminOverride={isAdminOverride} taskTypeFilter="input" triggerViewDetails={triggerViewDetails} />}
       {activeTab === 'direct' && <WorkerTab user={user} tasks={tasks} updateTask={updateTask} isAdminOverride={isAdminOverride} taskTypeFilter="direct" triggerViewDetails={triggerViewDetails} />}
-      {activeTab === 'history' && user.canInput && <AllTasksHistoryTab tasks={tasks} categories={categories} triggerPrint={triggerPrint} triggerDetailsPrint={triggerDetailsPrint} triggerViewDetails={triggerViewDetails} triggerDownloadPDF={triggerDownloadPDF} currentUser={user} updateTask={updateTask} deleteTask={deleteTask} users={users} />}
+      {activeTab === 'history' && user.canInput && <AllTasksHistoryTab tasks={tasks} categories={categories} triggerPrint={triggerPrint} triggerDownloadPDF={triggerDownloadPDF} triggerDetailsPrint={triggerDetailsPrint} triggerDetailsDownload={triggerDetailsDownload} triggerViewDetails={triggerViewDetails} currentUser={user} updateTask={updateTask} deleteTask={deleteTask} users={users} />}
     </div>
   );
 };
@@ -509,7 +559,7 @@ const InputFormTab = ({ addTask, categories, designations, addCategory, addDesig
         </div>
         <div className="flex flex-wrap gap-4 justify-center mt-4">
           <button onClick={() => triggerPrint(lastTask)} className="px-5 py-3 bg-slate-800 text-white font-bold rounded-xl flex items-center gap-2 hover:bg-slate-900 transition-colors"><Printer size={18}/> Print Slip</button>
-          <button onClick={() => { triggerPrint(lastTask); triggerDownloadPDF(); }} className="px-5 py-3 bg-indigo-600 text-white font-bold rounded-xl flex items-center gap-2 hover:bg-indigo-700 transition-colors"><Download size={18}/> Download PDF</button>
+          <button onClick={() => triggerDownloadPDF(lastTask)} className="px-5 py-3 bg-indigo-600 text-white font-bold rounded-xl flex items-center gap-2 hover:bg-indigo-700 transition-colors"><Download size={18}/> Download PDF</button>
           <button onClick={() => setLastTask(null)} className="px-5 py-3 bg-blue-600 text-white font-bold rounded-xl flex items-center gap-2 hover:bg-blue-700 transition-colors"><Plus size={18}/> New Input</button>
         </div>
       </div>
@@ -870,7 +920,7 @@ const AllTasksHistoryTab = ({ tasks, categories, triggerPrint, triggerDetailsPri
                 <td className="px-4 py-3"><span className={`px-2 py-1 rounded text-xs font-black uppercase ${t.status==='Completed'?'bg-green-100 text-green-700':t.status==='In Progress'?'bg-amber-100 text-amber-700':t.status==='Unsolved'?'bg-slate-200 text-slate-500':'bg-red-100 text-red-700'}`}>{t.status}</span></td>
                 <td className="px-4 py-3 flex items-center gap-2">
                   <button onClick={()=>triggerPrint(t)} title="Print Slip" className="text-blue-600 hover:bg-blue-50 p-2 rounded-lg transition-colors"><Printer size={18}/></button>
-                  <button onClick={()=>{ triggerPrint(t); triggerDownloadPDF(); }} title="Download Slip PDF" className="text-indigo-600 hover:bg-indigo-50 p-2 rounded-lg transition-colors"><Download size={18}/></button>
+                  <button onClick={()=>{ triggerDownloadPDF(t); }} title="Download Slip PDF" className="text-indigo-600 hover:bg-indigo-50 p-2 rounded-lg transition-colors"><Download size={18}/></button>
                   {(currentUser.role === 'admin' || currentUser.canSeeReports) && (
                     <button onClick={()=>{ triggerViewDetails(t); }} title="Detailed Report" className="text-slate-600 hover:bg-slate-100 p-2 rounded-lg transition-colors"><FileText size={18}/></button>
                   )}
@@ -890,7 +940,7 @@ const AllTasksHistoryTab = ({ tasks, categories, triggerPrint, triggerDetailsPri
 
 
 // --- SUPER ADMIN DASHBOARD ---
-const AdminDashboard = ({ tasks, updateTask, deleteTask, categories, designations, users, updateUserDoc, setImpersonatedUser, triggerPrint, triggerDetailsPrint, triggerViewDetails, triggerDownloadPDF, triggerMasterReport, addTask, addCategory, addDesignation, backupMeta, updateBackupMeta, triggerCitizenPrint }) => {
+const AdminDashboard = ({ tasks, updateTask, deleteTask, categories, designations, users, updateUserDoc, setImpersonatedUser, triggerPrint, triggerDetailsPrint, triggerViewDetails, triggerDownloadPDF, triggerMasterReport, addTask, addCategory, addDesignation, backupMeta, updateBackupMeta, triggerCitizenPrint, triggerCitizenDownload }) => {
   const [activeTab, setActiveTab] = useState('overview');
   const [reportModalOpen, setReportModalOpen] = useState(false);
 
@@ -943,7 +993,7 @@ const AdminDashboard = ({ tasks, updateTask, deleteTask, categories, designation
       )}
 
       {activeTab === 'input' && <InputFormTab addTask={addTask} categories={categories} designations={designations} addCategory={addCategory} addDesignation={addDesignation} users={users} triggerPrint={triggerPrint} triggerDownloadPDF={triggerDownloadPDF} creator={users.find(u=>u.role==='admin')} />}
-      {activeTab === 'citizens' && <AdminCitizenDirectory tasks={tasks} triggerCitizenPrint={triggerCitizenPrint} triggerDownloadPDF={triggerDownloadPDF} />}
+      {activeTab === 'citizens' && <AdminCitizenDirectory tasks={tasks} triggerCitizenPrint={triggerCitizenPrint} triggerDownloadPDF={triggerCitizenDownload} />}
       {activeTab === 'direct' && <AdminDirectAssignments users={users} tasks={tasks} addTask={addTask} triggerPrint={triggerPrint} triggerDetailsPrint={triggerDetailsPrint} triggerViewDetails={triggerViewDetails} updateTask={updateTask} deleteTask={deleteTask} />}
 
       {activeTab === 'users' && (
@@ -968,7 +1018,7 @@ const AdminDashboard = ({ tasks, updateTask, deleteTask, categories, designation
       {activeTab === 'settings' && <AdminSettings users={users} updateUserDoc={updateUserDoc} />}
       {activeTab === 'database' && <AdminDatabase tasks={tasks} users={users} backupMeta={backupMeta} updateBackupMeta={updateBackupMeta} />}
       
-      {reportModalOpen && <ReportConfigModal onClose={()=>setReportModalOpen(false)} onGenerate={(config) => { setReportModalOpen(false); triggerMasterReport(config); }} triggerDownloadPDF={triggerDownloadPDF} />}
+      {reportModalOpen && <ReportConfigModal onClose={()=>setReportModalOpen(false)} onGenerate={(config) => { setReportModalOpen(false); triggerMasterReport(config); }} triggerDownloadPDF={(config) => { setReportModalOpen(false); triggerMasterDownload(config); }} />}
     </div>
   );
 };
@@ -1023,7 +1073,7 @@ const AdminCitizenDirectory = ({ tasks, triggerCitizenPrint, triggerDownloadPDF 
         <div className="flex gap-2">
           <button onClick={handleDownloadCSV} className="bg-teal-50 text-teal-700 hover:bg-teal-100 px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-colors border border-teal-200"><List size={16}/> Export CSV</button>
           <button onClick={() => triggerCitizenPrint(citizensData)} className="bg-slate-800 text-white hover:bg-black px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-colors"><Printer size={16}/> Print PDF</button>
-          <button onClick={() => { triggerCitizenPrint(citizensData); triggerDownloadPDF(); }} className="bg-indigo-600 text-white hover:bg-indigo-700 px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-colors"><Download size={16}/></button>
+          <button onClick={() => triggerDownloadPDF(citizensData)} className="bg-indigo-600 text-white hover:bg-indigo-700 px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-colors"><Download size={16}/></button>
         </div>
       </div>
 
@@ -1076,11 +1126,11 @@ const AdminCitizenDirectory = ({ tasks, triggerCitizenPrint, triggerDownloadPDF 
 };
 
 // Print Citizen Directory
-const PrintCitizenDirectory = ({ citizens, onComplete }) => {
+const PrintCitizenDirectory = ({ citizens, id, mode }) => {
+  const wrapperClass = mode === 'print' ? 'hidden print:block w-full bg-white text-black font-sans min-h-screen' : 'absolute top-[-9999px] left-[-9999px] w-[210mm] bg-white text-black font-sans print-hidden';
   return (
-    <div className="hidden print:block absolute top-0 left-0 w-full bg-white text-black font-sans z-[999999] min-h-screen">
-      <button onClick={onComplete} className="print-hidden fixed top-4 right-4 bg-red-500 text-white z-[10000] px-4 py-2 rounded-lg font-bold shadow-lg">Close Print View</button>
-      <div className="max-w-[210mm] mx-auto bg-white p-8">
+    <div id={id} className={wrapperClass}>
+      <div className="p-8 mx-auto bg-white">
         <div className="text-center border-b-2 border-black pb-4 mb-6">
           <h1 className="text-2xl font-bold uppercase tracking-widest mb-1 text-slate-800">PK Navas MLA Office</h1>
           <h2 className="text-lg font-semibold text-slate-500 uppercase tracking-widest">Citizen Directory & Visit Log</h2>
@@ -1314,9 +1364,10 @@ const ReportConfigModal = ({ onClose, onGenerate, triggerDownloadPDF }) => {
   const [customStart, setCustomStart] = useState('');
   const [customEnd, setCustomEnd] = useState('');
 
-  const handleGenerate = (download) => {
-    onGenerate({ range, customStart, customEnd });
-    if (download) setTimeout(triggerDownloadPDF, 100);
+  const handleGenerate = (isDownload) => {
+    const conf = { range, customStart, customEnd };
+    if (isDownload) triggerDownloadPDF(conf);
+    else onGenerate(conf);
   };
 
   return (
@@ -1555,7 +1606,7 @@ const TaskDetailsModal = ({ task, onClose, updateTask, deleteTask, users, trigge
           <div><h2 className="text-2xl font-black">Input Profile</h2><p className="text-slate-400 font-bold tracking-widest text-xs uppercase mt-1">ID: {task.id}</p></div>
           <div className="flex gap-3">
             <button onClick={() => triggerDetailsPrint(task)} title="Print Complete Report" className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2 transition-colors"><Printer size={18}/> Print</button>
-            <button onClick={() => { triggerDetailsPrint(task); triggerDownloadPDF(); }} title="Download PDF" className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2 transition-colors"><Download size={18}/> PDF</button>
+            <button onClick={() => triggerDownloadPDF(task)} title="Download PDF" className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2 transition-colors"><Download size={18}/> PDF</button>
             <button onClick={async () => { if(await deleteTask(task.id)) onClose(); }} title="Delete Input" className="bg-red-500/20 text-red-300 hover:bg-red-500 hover:text-white p-2 rounded-lg transition-colors"><Trash2 size={20}/></button>
             <button onClick={onClose} title="Close (Esc)" className="bg-white/10 hover:bg-white/30 px-4 py-2 rounded-lg text-white border border-white/20 flex items-center gap-2 font-bold transition-colors"><X size={20}/> Close</button>
           </div>
@@ -1676,11 +1727,11 @@ const TaskDetailsModal = ({ task, onClose, updateTask, deleteTask, users, trigge
   );
 };
 
-const PrintTaskDetailsReport = ({ task, users, onComplete }) => {
+const PrintTaskDetailsReport = ({ task, users, id, mode }) => {
+  const wrapperClass = mode === 'print' ? 'hidden print:block w-full bg-white text-black font-sans' : 'absolute top-[-9999px] left-[-9999px] w-[210mm] bg-white text-black font-sans print-hidden';
   return (
-    <div className="hidden print:block absolute top-0 left-0 w-full bg-white text-black font-sans z-[999999] min-h-screen">
-       <button onClick={onComplete} className="print-hidden fixed top-4 right-4 bg-red-500 text-white z-[10000] px-4 py-2 rounded-lg font-bold shadow-lg">Close Print</button>
-       <div className="max-w-[210mm] mx-auto bg-white text-sm p-8">
+    <div id={id} className={wrapperClass}>
+       <div className="p-10 mx-auto w-full max-w-[210mm] text-sm">
           <div className="border-b-2 border-slate-800 pb-4 mb-8 text-center break-inside-avoid">
               <h1 className="text-2xl font-black uppercase tracking-widest text-slate-900">PK Navas MLA Office</h1>
               <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-widest mt-1">Detailed Input Report</h2>
@@ -1753,80 +1804,73 @@ const PrintTaskDetailsReport = ({ task, users, onComplete }) => {
   );
 };
 
-const PrintAcknowledgeSlip = ({ task, onComplete }) => {
+const PrintAcknowledgeSlip = ({ task, id, mode }) => {
+  const wrapperClass = mode === 'print' ? 'hidden print:flex w-full bg-white text-black font-sans min-h-screen flex-col' : 'absolute top-[-9999px] left-[-9999px] w-[210mm] min-h-[297mm] bg-white text-black font-sans flex flex-col print-hidden';
   return (
-    <div className="hidden print:block absolute top-0 left-0 w-full bg-white text-black font-sans z-[999999] min-h-screen">
-      <button onClick={onComplete} className="print-hidden fixed top-4 right-4 bg-red-500 text-white z-[10000] px-4 py-2 rounded-lg font-bold shadow-lg">Close Print View</button>
+    <div id={id} className={wrapperClass}>
+      {/* 75% Top - Office Copy */}
+      <div className="flex-[3] p-10 flex flex-col relative box-border border-b-2 border-dashed border-slate-400">
+         <div className="text-center border-b-2 border-slate-800 pb-4 mb-6 shrink-0">
+            <h1 className="text-2xl font-black tracking-widest uppercase text-slate-900">PK Navas MLA Office</h1>
+            <h2 className="text-xs font-bold tracking-widest text-slate-500 uppercase mt-1">Official Office Copy</h2>
+         </div>
 
-      <div className="max-w-[210mm] min-h-[297mm] mx-auto bg-white flex flex-col box-border">
-        {/* 75% Top - Office Copy */}
-        <div className="flex-[3] p-10 flex flex-col relative box-border">
-           <div className="text-center border-b-2 border-slate-800 pb-4 mb-6 shrink-0">
-              <h1 className="text-2xl font-black tracking-widest uppercase text-slate-900">PK Navas MLA Office</h1>
-              <h2 className="text-xs font-bold tracking-widest text-slate-500 uppercase mt-1">Official Office Copy</h2>
-           </div>
+         <div className="flex justify-between items-center mb-6 bg-slate-50 p-4 border border-slate-200 rounded-lg shrink-0">
+             <div><p className="text-[10px] text-slate-500 uppercase font-black tracking-widest">Reference ID</p><p className="text-xl font-black text-slate-900">{task.id}</p></div>
+             <div className="text-right"><p className="text-[10px] text-slate-500 uppercase font-black tracking-widest">Date</p><p className="text-base font-bold text-slate-800">{formatDate(task.createdAt)}</p></div>
+         </div>
 
-           <div className="flex justify-between items-center mb-6 bg-slate-50 p-4 border border-slate-200 rounded-lg shrink-0">
-               <div><p className="text-[10px] text-slate-500 uppercase font-black tracking-widest">Reference ID</p><p className="text-xl font-black text-slate-900">{task.id}</p></div>
-               <div className="text-right"><p className="text-[10px] text-slate-500 uppercase font-black tracking-widest">Date</p><p className="text-base font-bold text-slate-800">{formatDate(task.createdAt)}</p></div>
-           </div>
+         <div className="grid grid-cols-2 gap-x-8 gap-y-4 text-sm mb-6 shrink-0">
+             <div><span className="text-slate-500 font-bold block text-[10px] uppercase tracking-wider mb-1">Citizen Name</span> <strong className="text-base">{task.personalDetails.name}</strong> {task.personalDetails.designation && <span className="text-[10px] bg-slate-200 px-1 rounded ml-1 uppercase">{task.personalDetails.designation}</span>}</div>
+             <div><span className="text-slate-500 font-bold block text-[10px] uppercase tracking-wider mb-1">Contact</span> <strong>{task.personalDetails.mobileNumber}</strong></div>
+             <div><span className="text-slate-500 font-bold block text-[10px] uppercase tracking-wider mb-1">Referral</span> <strong>{task.personalDetails.referralPerson || '-'}</strong></div>
+             <div><span className="text-slate-500 font-bold block text-[10px] uppercase tracking-wider mb-1">Address</span> <strong>{task.personalDetails.place || '-'}, PO: {task.personalDetails.postOffice || '-'}, PIN: {task.personalDetails.pinCode || '-'}, {task.personalDetails.localBody || task.personalDetails.panchayat || '-'}</strong></div>
+         </div>
 
-           <div className="grid grid-cols-2 gap-x-8 gap-y-4 text-sm mb-6 shrink-0">
-               <div><span className="text-slate-500 font-bold block text-[10px] uppercase tracking-wider mb-1">Citizen Name</span> <strong className="text-base">{task.personalDetails.name}</strong> {task.personalDetails.designation && <span className="text-[10px] bg-slate-200 px-1 rounded ml-1 uppercase">{task.personalDetails.designation}</span>}</div>
-               <div><span className="text-slate-500 font-bold block text-[10px] uppercase tracking-wider mb-1">Contact</span> <strong>{task.personalDetails.mobileNumber}</strong></div>
-               <div><span className="text-slate-500 font-bold block text-[10px] uppercase tracking-wider mb-1">Referral</span> <strong>{task.personalDetails.referralPerson || '-'}</strong></div>
-               <div><span className="text-slate-500 font-bold block text-[10px] uppercase tracking-wider mb-1">Address</span> <strong>{task.personalDetails.place || '-'}, PO: {task.personalDetails.postOffice || '-'}, PIN: {task.personalDetails.pinCode || '-'}, {task.personalDetails.localBody || task.personalDetails.panchayat || '-'}</strong></div>
-           </div>
+         <div className="mb-4 shrink-0">
+            <span className="text-slate-500 font-bold block text-[10px] uppercase tracking-wider mb-1">Category & Type</span>
+            <div className="font-bold text-slate-800"><span className="bg-slate-200 px-2 py-0.5 rounded text-xs mr-2">{task.types.join(', ')}</span> {task.category}</div>
+         </div>
 
-           <div className="mb-4 shrink-0">
-              <span className="text-slate-500 font-bold block text-[10px] uppercase tracking-wider mb-1">Category & Type</span>
-              <div className="font-bold text-slate-800"><span className="bg-slate-200 px-2 py-0.5 rounded text-xs mr-2">{task.types.join(', ')}</span> {task.category}</div>
-           </div>
+         <div className="mb-6 flex-1 min-h-[100px] flex flex-col overflow-hidden">
+            <span className="text-slate-500 font-bold block text-[10px] uppercase tracking-wider mb-1">Subject & Description</span>
+            <div className="font-bold text-slate-800 mb-2">{task.subject || '-'}</div>
+            {task.description && <div className="p-3 border border-slate-200 bg-slate-50 rounded-lg text-xs whitespace-pre-wrap flex-1 overflow-hidden text-ellipsis">{task.description}</div>}
+         </div>
 
-           <div className="mb-6 flex-1 min-h-[100px] flex flex-col overflow-hidden">
-              <span className="text-slate-500 font-bold block text-[10px] uppercase tracking-wider mb-1">Subject & Description</span>
-              <div className="font-bold text-slate-800 mb-2">{task.subject || '-'}</div>
-              {task.description && <div className="p-3 border border-slate-200 bg-slate-50 rounded-lg text-xs whitespace-pre-wrap flex-1 overflow-hidden text-ellipsis line-clamp-[12]">{task.description}</div>}
-           </div>
+         <div className="mt-auto flex justify-between pt-8 shrink-0">
+            <div className="text-center"><div className="w-40 border-t-2 border-slate-800 pt-2 font-bold uppercase text-[10px] tracking-widest">Citizen Sign</div></div>
+            <div className="text-center"><div className="w-40 border-t-2 border-slate-800 pt-2 font-bold uppercase text-[10px] tracking-widest">Office Seal & Sign</div></div>
+         </div>
+         <div className="absolute left-1/2 -bottom-3 -translate-x-1/2 bg-white px-4 text-slate-400 flex items-center gap-2"><Scissors size={18}/><span className="text-[10px] font-black uppercase tracking-widest">Cut Here</span></div>
+      </div>
 
-           <div className="mt-auto flex justify-between pt-8 shrink-0">
-              <div className="text-center"><div className="w-40 border-t-2 border-slate-800 pt-2 font-bold uppercase text-[10px] tracking-widest">Citizen Sign</div></div>
-              <div className="text-center"><div className="w-40 border-t-2 border-slate-800 pt-2 font-bold uppercase text-[10px] tracking-widest">Office Seal & Sign</div></div>
-           </div>
-        </div>
-
-        {/* Scissor Divider */}
-        <div className="border-t-2 border-dashed border-slate-400 relative shrink-0">
-           <div className="absolute left-1/2 -top-3 -translate-x-1/2 bg-white px-4 text-slate-400 flex items-center gap-2"><Scissors size={18}/><span className="text-[10px] font-black uppercase tracking-widest">Cut Here</span></div>
-        </div>
-
-        {/* 25% Bottom - Citizen Copy */}
-        <div className="flex-1 p-10 bg-slate-50 flex flex-col justify-center box-border">
-           <div className="flex justify-between items-start mb-4">
-               <div>
-                  <h1 className="text-xl font-black tracking-widest uppercase text-slate-900">PK Navas MLA Office</h1>
-                  <p className="text-[10px] font-bold tracking-widest text-slate-500 uppercase mt-1">Citizen Token</p>
-               </div>
-               <div className="text-right">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Ref ID</p>
-                  <p className="text-xl font-black text-slate-900 bg-white border border-slate-300 shadow-sm px-3 py-1 rounded-lg">{task.id}</p>
-               </div>
-           </div>
-           <div className="grid grid-cols-2 gap-y-2 gap-x-8 text-xs mb-4">
-               <div><span className="text-slate-500 font-bold">Name:</span> <strong className="text-sm block">{task.personalDetails.name}</strong></div>
-               <div><span className="text-slate-500 font-bold">Date:</span> <strong className="block">{formatDate(task.createdAt)}</strong></div>
-               <div><span className="text-slate-500 font-bold">Category:</span> <strong className="block">{task.category}</strong></div>
-               <div className="truncate"><span className="text-slate-500 font-bold">Subject:</span> <strong className="block truncate">{task.subject}</strong></div>
-           </div>
-           <p className="text-[11px] text-center text-slate-500 font-medium italic mt-auto border-t border-slate-200 pt-4">Thank you for visiting. Your request has been securely registered.</p>
-        </div>
+      {/* 25% Bottom - Citizen Copy */}
+      <div className="flex-1 p-10 bg-slate-50 flex flex-col justify-center box-border">
+         <div className="flex justify-between items-start mb-4">
+             <div>
+                <h1 className="text-xl font-black tracking-widest uppercase text-slate-900">PK Navas MLA Office</h1>
+                <p className="text-[10px] font-bold tracking-widest text-slate-500 uppercase mt-1">Citizen Token</p>
+             </div>
+             <div className="text-right">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Ref ID</p>
+                <p className="text-xl font-black text-slate-900 bg-white border border-slate-300 shadow-sm px-3 py-1 rounded-lg">{task.id}</p>
+             </div>
+         </div>
+         <div className="grid grid-cols-2 gap-y-2 gap-x-8 text-xs mb-4">
+             <div><span className="text-slate-500 font-bold">Name:</span> <strong className="text-sm block">{task.personalDetails.name}</strong></div>
+             <div><span className="text-slate-500 font-bold">Date:</span> <strong className="block">{formatDate(task.createdAt)}</strong></div>
+             <div><span className="text-slate-500 font-bold">Category:</span> <strong className="block">{task.category}</strong></div>
+             <div className="truncate"><span className="text-slate-500 font-bold">Subject:</span> <strong className="block truncate">{task.subject}</strong></div>
+         </div>
+         <p className="text-[11px] text-center text-slate-500 font-medium italic mt-auto border-t border-slate-200 pt-4">Thank you for visiting. Your request has been securely registered.</p>
       </div>
     </div>
   );
 };
 
 // --- PRINT MASTER REPORT ---
-const PrintMasterReport = ({ config, tasks, users, categories, onComplete }) => {
+const PrintMasterReport = ({ config, tasks, users, categories, id, mode }) => {
   // 1. Filter tasks by date range
   const filteredTasks = useMemo(() => {
     let now = new Date();
@@ -1872,10 +1916,10 @@ const PrintMasterReport = ({ config, tasks, users, categories, onComplete }) => 
 
   const rangeLabel = { all: 'All Time', '1week': 'Last 7 Days', '1month': 'Last 30 Days', '6months': 'Last 6 Months', custom: `Custom Range (${config.customStart} to ${config.customEnd})` };
 
+  const wrapperClass = mode === 'print' ? 'hidden print:block w-full bg-white text-black font-sans' : 'absolute top-[-9999px] left-[-9999px] w-[210mm] bg-white text-black font-sans print-hidden';
+
   return (
-    <div className="hidden print:block absolute top-0 left-0 w-full bg-white text-black font-sans z-[999999] min-h-screen">
-      <button onClick={onComplete} className="print-hidden fixed top-4 right-4 bg-red-500 text-white z-[10000] px-4 py-2 rounded-lg font-bold shadow-lg">Close Report View</button>
-      
+    <div id={id} className={wrapperClass}>
       <div className="max-w-[210mm] mx-auto bg-white p-8">
         {/* Header */}
         <div className="text-center border-b-4 border-slate-800 pb-4 mb-6 break-inside-avoid">

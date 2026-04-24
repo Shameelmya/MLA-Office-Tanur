@@ -4,7 +4,7 @@ import {
   Clock, CheckCircle, AlertTriangle, FileText, Calendar, 
   MapPin, Phone, MessageSquare, Printer, Settings, Check, 
   Send, ArrowDownUp, X, Edit, Trash2, Eye, Shield, 
-  ChevronRight, Lock, Activity, UserX, CalendarPlus, Zap, FileOutput, Database, Download, Upload, AlertOctagon, Scissors
+  ChevronRight, Lock, Activity, UserX, CalendarPlus, Zap, FileOutput, Database, Download, Upload, AlertOctagon, Scissors, List
 } from 'lucide-react';
 
 // --- FIREBASE INTEGRATION ---
@@ -52,6 +52,7 @@ const formatWhatsAppNumber = (phone) => {
 const DEFAULT_CATEGORIES = ['Invitation', 'Road Complaint', 'Help Request', 'Personal Complaint', 'Confidential Info', 'Others'];
 const DEFAULT_DESIGNATIONS = ['Citizen', 'Panchayath President', 'Panchayath Secretary', 'Ward Member', 'Asha Worker', 'Political Leader', 'Others'];
 const INPUT_TYPES = ['Letter', 'Phone Call', 'Direct Visit', 'WhatsApp Message', 'Email', 'Others'];
+const LOCAL_BODIES = ['Tanur Municipality', 'Tanalur Panchayath', 'Ozhur Panchayath', 'Cheriyamundam Panchayath', 'Ponmundam Panchayath', 'Niramaruthur Panchayath', 'Other'];
 
 const DEFAULT_USERS = [
   { id: 'admin', name: 'PK Navas (MLA)', role: 'admin', pass: 'Navas@2026', enabled: true, canInput: true, canSeeReports: true, phone: '', whatsapp: '' },
@@ -141,6 +142,7 @@ export default function App() {
   
   const [taskToPrint, setTaskToPrint] = useState(null);
   const [taskDetailsToPrint, setTaskDetailsToPrint] = useState(null);
+  const [viewingTask, setViewingTask] = useState(null);
   const [masterReportConfig, setMasterReportConfig] = useState(null);
   const [citizenDirectoryToPrint, setCitizenDirectoryToPrint] = useState(null);
 
@@ -239,6 +241,7 @@ export default function App() {
       {taskDetailsToPrint && <PrintTaskDetailsReport task={taskDetailsToPrint} users={users} onComplete={()=>setTaskDetailsToPrint(null)} />}
       {masterReportConfig && <PrintMasterReport config={masterReportConfig} tasks={tasks} users={users} categories={categories} onComplete={() => setMasterReportConfig(null)} />}
       {citizenDirectoryToPrint && <PrintCitizenDirectory citizens={citizenDirectoryToPrint} onComplete={() => setCitizenDirectoryToPrint(null)} />}
+      {viewingTask && <TaskDetailsModal task={tasks.find(t => t.id === viewingTask.id) || viewingTask} onClose={() => setViewingTask(null)} updateTask={updateTask} deleteTask={deleteTask} users={users} triggerDetailsPrint={setTaskDetailsToPrint} currentUser={activeUser} />}
 
       <div className={`min-h-screen bg-slate-100 font-sans text-slate-800 flex flex-col ${isPrinting ? 'print:hidden' : ''}`}>
         <header className={`${isImpersonating ? 'bg-gradient-to-r from-red-900 to-orange-800' : 'bg-gradient-to-r from-blue-900 via-indigo-800 to-purple-900'} text-white shadow-md print:hidden transition-colors`}>
@@ -262,9 +265,9 @@ export default function App() {
 
         <main className="flex-grow max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
           {activeUser.role === 'admin' ? (
-            <AdminDashboard tasks={tasks} updateTask={updateTask} deleteTask={deleteTask} categories={categories} designations={designations} users={users} updateUserDoc={updateUserDoc} setImpersonatedUser={setImpersonatedUser} triggerPrint={setTaskToPrint} triggerDetailsPrint={setTaskDetailsToPrint} addTask={addTask} addCategory={addCategory} addDesignation={addDesignation} triggerMasterReport={setMasterReportConfig} backupMeta={backupMeta} updateBackupMeta={updateBackupMeta} triggerCitizenPrint={setCitizenDirectoryToPrint} />
+            <AdminDashboard tasks={tasks} updateTask={updateTask} deleteTask={deleteTask} categories={categories} designations={designations} users={users} updateUserDoc={updateUserDoc} setImpersonatedUser={setImpersonatedUser} triggerPrint={setTaskToPrint} triggerDetailsPrint={setTaskDetailsToPrint} triggerViewDetails={setViewingTask} addTask={addTask} addCategory={addCategory} addDesignation={addDesignation} triggerMasterReport={setMasterReportConfig} backupMeta={backupMeta} updateBackupMeta={updateBackupMeta} triggerCitizenPrint={setCitizenDirectoryToPrint} />
           ) : (
-            <OfficerDashboard user={activeUser} tasks={tasks} updateTask={updateTask} deleteTask={deleteTask} categories={categories} designations={designations} users={users} addTask={addTask} addCategory={addCategory} addDesignation={addDesignation} triggerPrint={setTaskToPrint} triggerDetailsPrint={setTaskDetailsToPrint} isAdminOverride={currentUser.role === 'admin'} />
+            <OfficerDashboard user={activeUser} tasks={tasks} updateTask={updateTask} deleteTask={deleteTask} categories={categories} designations={designations} users={users} addTask={addTask} addCategory={addCategory} addDesignation={addDesignation} triggerPrint={setTaskToPrint} triggerDetailsPrint={setTaskDetailsToPrint} triggerViewDetails={setViewingTask} isAdminOverride={currentUser.role === 'admin'} />
           )}
         </main>
         
@@ -369,7 +372,7 @@ const LoginScreen = ({ onLogin, users }) => {
 };
 
 // --- COMBINED OFFICER DASHBOARD ---
-const OfficerDashboard = ({ user, tasks, updateTask, deleteTask, categories, designations, users, addTask, addCategory, addDesignation, triggerPrint, triggerDetailsPrint, isAdminOverride }) => {
+const OfficerDashboard = ({ user, tasks, updateTask, deleteTask, categories, designations, users, addTask, addCategory, addDesignation, triggerPrint, triggerDetailsPrint, triggerViewDetails, isAdminOverride }) => {
   const [activeTab, setActiveTab] = useState(user.canInput ? 'input' : 'tasks');
 
   return (
@@ -382,9 +385,9 @@ const OfficerDashboard = ({ user, tasks, updateTask, deleteTask, categories, des
       </div>
 
       {activeTab === 'input' && user.canInput && <InputFormTab addTask={addTask} categories={categories} designations={designations} addCategory={addCategory} addDesignation={addDesignation} users={users} triggerPrint={triggerPrint} creator={user} />}
-      {activeTab === 'tasks' && <WorkerTab user={user} tasks={tasks} updateTask={updateTask} isAdminOverride={isAdminOverride} taskTypeFilter="input" />}
-      {activeTab === 'direct' && <WorkerTab user={user} tasks={tasks} updateTask={updateTask} isAdminOverride={isAdminOverride} taskTypeFilter="direct" />}
-      {activeTab === 'history' && <AllTasksHistoryTab tasks={tasks} categories={categories} triggerPrint={triggerPrint} triggerDetailsPrint={triggerDetailsPrint} currentUser={user} updateTask={updateTask} deleteTask={deleteTask} users={users} />}
+      {activeTab === 'tasks' && <WorkerTab user={user} tasks={tasks} updateTask={updateTask} isAdminOverride={isAdminOverride} taskTypeFilter="input" triggerViewDetails={triggerViewDetails} />}
+      {activeTab === 'direct' && <WorkerTab user={user} tasks={tasks} updateTask={updateTask} isAdminOverride={isAdminOverride} taskTypeFilter="direct" triggerViewDetails={triggerViewDetails} />}
+      {activeTab === 'history' && <AllTasksHistoryTab tasks={tasks} categories={categories} triggerPrint={triggerPrint} triggerDetailsPrint={triggerDetailsPrint} triggerViewDetails={triggerViewDetails} currentUser={user} updateTask={updateTask} deleteTask={deleteTask} users={users} />}
     </div>
   );
 };
@@ -393,7 +396,7 @@ const OfficerDashboard = ({ user, tasks, updateTask, deleteTask, categories, des
 const InputFormTab = ({ addTask, categories, designations, addCategory, addDesignation, users, triggerPrint, creator }) => {
   const initForm = {
     types: [], category: '', newCategory: '', programDate: '', subject: '',
-    personal: { name: '', designation: '', newDesignation: '', referralPerson: '', houseName: '', place: '', postOffice: '', pinCode: '', panchayat: '', wardNumber: '', mobileNumber: '', whatsappNumber: '' },
+    personal: { name: '', designation: '', newDesignation: '', gender: '', referralPerson: '', mobileNumber: '', whatsappNumber: '', houseName: '', place: '', postOffice: '', pinCode: '', localBody: '', otherLocalBody: '', wardNumber: '' },
     description: '', assignedTo: [], deadline: ''
   };
   const [form, setForm] = useState(initForm);
@@ -427,6 +430,8 @@ const InputFormTab = ({ addTask, categories, designations, addCategory, addDesig
       if (!designations.includes(form.personal.newDesignation)) addDesignation(form.personal.newDesignation);
       finalDesig = form.personal.newDesignation;
     }
+
+    const finalLocalBody = form.personal.localBody === 'Other' ? form.personal.otherLocalBody : form.personal.localBody;
     
     let finalAssignedTo = form.assignedTo;
     if(isInvitation) finalAssignedTo = ['admin']; 
@@ -435,8 +440,9 @@ const InputFormTab = ({ addTask, categories, designations, addCategory, addDesig
     if (!form.subject.trim()) return alert("Subject is required.");
 
     const taskId = generateId();
-    const finalPersonalDetails = { ...form.personal, designation: finalDesig };
+    const finalPersonalDetails = { ...form.personal, designation: finalDesig, localBody: finalLocalBody };
     delete finalPersonalDetails.newDesignation;
+    delete finalPersonalDetails.otherLocalBody;
 
     const newTask = {
       id: taskId, types: form.types, category: finalCat, personalDetails: finalPersonalDetails, taskType: 'input',
@@ -533,10 +539,18 @@ const InputFormTab = ({ addTask, categories, designations, addCategory, addDesig
              )}
           </div>
           <div>
+             <label className="flex justify-between items-center text-xs font-black text-slate-500 uppercase tracking-widest mb-2"><span>Gender</span></label>
+             <select name="gender" value={form.personal.gender} onChange={handlePersChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:bg-white focus:border-blue-500 outline-none transition-all">
+               <option value="">Select Gender...</option>
+               <option value="Male">Male</option>
+               <option value="Female">Female</option>
+               <option value="Other">Other</option>
+             </select>
+          </div>
+          <div>
              <label className="flex justify-between items-center text-xs font-black text-slate-500 uppercase tracking-widest mb-2"><span>Referral Person</span></label>
              <input name="referralPerson" value={form.personal.referralPerson} onChange={handlePersChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:bg-white focus:border-blue-500 outline-none transition-all" />
           </div>
-
           <div>
              <label className="flex justify-between items-center text-xs font-black text-slate-500 uppercase tracking-widest mb-2"><span>Mobile Number *</span></label>
              <input required name="mobileNumber" value={form.personal.mobileNumber} onChange={handlePersChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:bg-white focus:border-blue-500 outline-none transition-all" />
@@ -555,9 +569,20 @@ const InputFormTab = ({ addTask, categories, designations, addCategory, addDesig
              <input name="whatsappNumber" value={form.personal.whatsappNumber} onChange={handlePersChange} disabled={sendWaMsgSame} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:bg-white focus:border-blue-500 outline-none transition-all disabled:opacity-60" />
           </div>
           
-          <div><label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Place</label><input name="place" value={form.personal.place} onChange={handlePersChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:bg-white focus:border-blue-500 outline-none transition-all" /></div>
-          <div><label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Panchayat</label><input name="panchayat" value={form.personal.panchayat} onChange={handlePersChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:bg-white focus:border-blue-500 outline-none transition-all" /></div>
           <div><label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">House Name</label><input name="houseName" value={form.personal.houseName} onChange={handlePersChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:bg-white focus:border-blue-500 outline-none transition-all" /></div>
+          <div><label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Place Name</label><input name="place" value={form.personal.place} onChange={handlePersChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:bg-white focus:border-blue-500 outline-none transition-all" /></div>
+          <div><label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Post Office</label><input name="postOffice" value={form.personal.postOffice} onChange={handlePersChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:bg-white focus:border-blue-500 outline-none transition-all" /></div>
+          <div><label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">PIN Code</label><input name="pinCode" value={form.personal.pinCode} onChange={handlePersChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:bg-white focus:border-blue-500 outline-none transition-all" /></div>
+          <div>
+             <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Local Body</label>
+             <select name="localBody" value={form.personal.localBody} onChange={handlePersChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:bg-white focus:border-blue-500 outline-none transition-all">
+               <option value="">Select Local Body...</option>
+               {LOCAL_BODIES.map(lb => <option key={lb} value={lb}>{lb}</option>)}
+             </select>
+             {form.personal.localBody === 'Other' && (
+               <input type="text" name="otherLocalBody" placeholder="Specify local body..." value={form.personal.otherLocalBody} onChange={handlePersChange} className="w-full mt-2 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:bg-white focus:border-blue-500 outline-none transition-all" />
+             )}
+          </div>
           <div><label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Ward Number</label><input name="wardNumber" value={form.personal.wardNumber} onChange={handlePersChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:bg-white focus:border-blue-500 outline-none transition-all" /></div>
         </div>
       </div>
@@ -615,7 +640,7 @@ const InputFormTab = ({ addTask, categories, designations, addCategory, addDesig
   );
 };
 
-const WorkerTab = ({ user, tasks, updateTask, isAdminOverride, taskTypeFilter }) => {
+const WorkerTab = ({ user, tasks, updateTask, isAdminOverride, taskTypeFilter, triggerViewDetails }) => {
   const [search, setSearch] = useState('');
   const myAssigned = tasks.filter(t => t.assignedTo.includes(user.id) && (t.taskType || 'input') === taskTypeFilter);
   const myTotalAssigned = tasks.filter(t => t.assignedTo.includes(user.id));
@@ -645,16 +670,16 @@ const WorkerTab = ({ user, tasks, updateTask, isAdminOverride, taskTypeFilter })
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Column title="New / Pending" count={todo.length} color="slate">
-          {todo.map(t => <WorkerTaskCard key={t.id} task={t} user={user} updateTask={updateTask} isAdminOverride={isAdminOverride} />)}
+          {todo.map(t => <WorkerTaskCard key={t.id} task={t} user={user} updateTask={updateTask} isAdminOverride={isAdminOverride} triggerViewDetails={triggerViewDetails} />)}
         </Column>
         <Column title="In Progress" count={inProg.length} color="blue">
-          {inProg.map(t => <WorkerTaskCard key={t.id} task={t} user={user} updateTask={updateTask} isAdminOverride={isAdminOverride} />)}
+          {inProg.map(t => <WorkerTaskCard key={t.id} task={t} user={user} updateTask={updateTask} isAdminOverride={isAdminOverride} triggerViewDetails={triggerViewDetails} />)}
         </Column>
         <Column title="Completed" count={comp.length} color="green">
-          {comp.map(t => <WorkerTaskCard key={t.id} task={t} user={user} updateTask={updateTask} isAdminOverride={isAdminOverride} />)}
+          {comp.map(t => <WorkerTaskCard key={t.id} task={t} user={user} updateTask={updateTask} isAdminOverride={isAdminOverride} triggerViewDetails={triggerViewDetails} />)}
           {unsolved.length > 0 && <div className="mt-8 pt-4 border-t-2 border-dashed border-slate-300">
             <h4 className="font-bold text-slate-500 mb-4 uppercase tracking-widest text-xs text-center">Unsolved / Closed</h4>
-            {unsolved.map(t => <WorkerTaskCard key={t.id} task={t} user={user} updateTask={updateTask} isUnsolved isAdminOverride={isAdminOverride} />)}
+            {unsolved.map(t => <WorkerTaskCard key={t.id} task={t} user={user} updateTask={updateTask} isUnsolved isAdminOverride={isAdminOverride} triggerViewDetails={triggerViewDetails} />)}
           </div>}
         </Column>
       </div>
@@ -662,17 +687,7 @@ const WorkerTab = ({ user, tasks, updateTask, isAdminOverride, taskTypeFilter })
   );
 };
 
-const Column = ({ title, count, color, children }) => {
-  const colorMap = { slate: 'border-slate-200 text-slate-700 bg-slate-100', blue: 'border-blue-200 text-blue-700 bg-blue-100', green: 'border-green-200 text-green-700 bg-green-100' };
-  return (
-    <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 flex flex-col h-[800px] overflow-hidden">
-      <h3 className="font-bold text-lg mb-4 flex items-center justify-between pb-3 border-b border-slate-200"><span className="text-slate-800">{title}</span><span className={`text-xs px-2.5 py-1 rounded-full font-black border ${colorMap[color]}`}>{count}</span></h3>
-      <div className="flex-1 overflow-y-auto space-y-4 pr-1 pb-4 custom-scrollbar">{children}{React.Children.count(children) === 0 && <div className="text-center text-sm font-medium text-slate-400 mt-10">No tasks here</div>}</div>
-    </div>
-  );
-};
-
-const WorkerTaskCard = ({ task, user, updateTask, isUnsolved, isAdminOverride }) => {
+const WorkerTaskCard = ({ task, user, updateTask, isUnsolved, isAdminOverride, triggerViewDetails }) => {
   const [showProgressModal, setShowProgressModal] = useState(false);
   const [updateText, setUpdateText] = useState('');
   
@@ -747,6 +762,10 @@ const WorkerTaskCard = ({ task, user, updateTask, isUnsolved, isAdminOverride })
         </div>
       )}
 
+      <div className="flex gap-2 mt-4 pt-4 border-t border-slate-100">
+        <button onClick={() => triggerViewDetails(task)} className="flex-1 bg-slate-100 text-slate-700 font-bold py-2 rounded-xl text-xs hover:bg-slate-200 transition-colors flex items-center justify-center gap-1"><Eye size={14}/> View Full Details</button>
+      </div>
+
       {myUpdates.length > 0 && (
         <div className="mt-4 pt-3 border-t border-slate-100 space-y-2">
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">My Progress</p>
@@ -770,7 +789,7 @@ const WorkerTaskCard = ({ task, user, updateTask, isUnsolved, isAdminOverride })
   );
 };
 
-const AllTasksHistoryTab = ({ tasks, categories, triggerPrint, triggerDetailsPrint, currentUser, updateTask, deleteTask, users }) => {
+const AllTasksHistoryTab = ({ tasks, categories, triggerPrint, triggerDetailsPrint, triggerViewDetails, currentUser, updateTask, deleteTask, users }) => {
   const [search, setSearch] = useState('');
   const [catFilter, setCatFilter] = useState('All');
   
@@ -807,7 +826,7 @@ const AllTasksHistoryTab = ({ tasks, categories, triggerPrint, triggerDetailsPri
                 <td className="px-4 py-3 flex items-center gap-2">
                   <button onClick={()=>triggerPrint(t)} title="Print Slip" className="text-blue-600 hover:bg-blue-50 p-2 rounded-lg transition-colors"><Printer size={18}/></button>
                   {(currentUser.role === 'admin' || currentUser.canSeeReports) && (
-                    <button onClick={()=>{ triggerDetailsPrint(t); }} title="Detailed Report" className="text-slate-600 hover:bg-slate-100 p-2 rounded-lg transition-colors"><FileText size={18}/></button>
+                    <button onClick={()=>{ triggerViewDetails(t); }} title="Detailed Report" className="text-slate-600 hover:bg-slate-100 p-2 rounded-lg transition-colors"><FileText size={18}/></button>
                   )}
                   {(currentUser.role === 'admin' || t.status === 'Pending') && (
                     <button onClick={async ()=>{ await deleteTask(t.id); }} title="Delete Input" className="text-red-500 hover:bg-red-50 p-2 rounded-lg transition-colors"><Trash2 size={18}/></button>
@@ -825,7 +844,7 @@ const AllTasksHistoryTab = ({ tasks, categories, triggerPrint, triggerDetailsPri
 
 
 // --- SUPER ADMIN DASHBOARD ---
-const AdminDashboard = ({ tasks, updateTask, deleteTask, categories, designations, users, updateUserDoc, setImpersonatedUser, triggerPrint, triggerDetailsPrint, triggerMasterReport, addTask, addCategory, addDesignation, backupMeta, updateBackupMeta, triggerCitizenPrint }) => {
+const AdminDashboard = ({ tasks, updateTask, deleteTask, categories, designations, users, updateUserDoc, setImpersonatedUser, triggerPrint, triggerDetailsPrint, triggerViewDetails, triggerMasterReport, addTask, addCategory, addDesignation, backupMeta, updateBackupMeta, triggerCitizenPrint }) => {
   const [activeTab, setActiveTab] = useState('overview');
   const [reportModalOpen, setReportModalOpen] = useState(false);
 
@@ -873,13 +892,13 @@ const AdminDashboard = ({ tasks, updateTask, deleteTask, categories, designation
             <StatCard title="Completed" value={comp} color="green" icon={<CheckCircle size={24}/>}/>
             <StatCard title="Pending" value={pend} color="red" icon={<Clock size={24}/>}/>
           </div>
-          <AdminGlobalView tasks={tasks.filter(t=>(t.taskType||'input')==='input')} updateTask={updateTask} deleteTask={deleteTask} users={users} triggerPrint={triggerPrint} triggerDetailsPrint={triggerDetailsPrint} categories={categories} />
+          <AdminGlobalView tasks={tasks.filter(t=>(t.taskType||'input')==='input')} updateTask={updateTask} deleteTask={deleteTask} users={users} triggerPrint={triggerPrint} triggerDetailsPrint={triggerDetailsPrint} triggerViewDetails={triggerViewDetails} categories={categories} />
         </div>
       )}
 
       {activeTab === 'input' && <InputFormTab addTask={addTask} categories={categories} designations={designations} addCategory={addCategory} addDesignation={addDesignation} users={users} triggerPrint={triggerPrint} creator={users.find(u=>u.role==='admin')} />}
       {activeTab === 'citizens' && <AdminCitizenDirectory tasks={tasks} triggerCitizenPrint={triggerCitizenPrint} />}
-      {activeTab === 'direct' && <AdminDirectAssignments users={users} tasks={tasks} addTask={addTask} triggerPrint={triggerPrint} triggerDetailsPrint={triggerDetailsPrint} updateTask={updateTask} deleteTask={deleteTask} />}
+      {activeTab === 'direct' && <AdminDirectAssignments users={users} tasks={tasks} addTask={addTask} triggerPrint={triggerPrint} triggerDetailsPrint={triggerDetailsPrint} triggerViewDetails={triggerViewDetails} updateTask={updateTask} deleteTask={deleteTask} />}
 
       {activeTab === 'users' && (
         <div className="bg-white p-8 rounded-3xl shadow-lg border border-slate-200 animate-in fade-in">
@@ -935,9 +954,9 @@ const AdminCitizenDirectory = ({ tasks, triggerCitizenPrint }) => {
   }, [tasks, search, sortBy]);
 
   const handleDownloadCSV = () => {
-    const headers = ['Name', 'Designation', 'Mobile Number', 'WhatsApp', 'House Name', 'Place', 'Panchayat', 'Ward', 'Total Visits', 'Last Visit'];
+    const headers = ['Name', 'Designation', 'Gender', 'Mobile Number', 'WhatsApp', 'House Name', 'Place', 'Post Office', 'PIN Code', 'Local Body', 'Ward', 'Total Visits', 'Last Visit'];
     const rows = citizensData.map(c => [
-      c.name, c.designation||'-', c.mobileNumber, c.whatsappNumber||'-', c.houseName||'-', c.place||'-', c.panchayat||'-', c.wardNumber||'-', c.visits, formatDate(c.lastVisit)
+      c.name, c.designation||'-', c.gender||'-', c.mobileNumber, c.whatsappNumber||'-', c.houseName||'-', c.place||'-', c.postOffice||'-', c.pinCode||'-', (c.localBody || c.panchayat || '-'), c.wardNumber||'-', c.visits, formatDate(c.lastVisit)
     ]);
     const csvContent = [headers.join(','), ...rows.map(r => r.map(f=>`"${f}"`).join(','))].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -987,9 +1006,16 @@ const AdminCitizenDirectory = ({ tasks, triggerCitizenPrint }) => {
           <tbody className="divide-y divide-slate-100">
             {citizensData.map((c, i) => (
               <tr key={i} className="hover:bg-slate-50">
-                <td className="px-4 py-3"><span className="font-bold text-slate-800 text-base">{c.name}</span>{c.designation && <span className="block text-xs text-teal-600 font-bold uppercase tracking-wider">{c.designation}</span>}</td>
+                <td className="px-4 py-3">
+                  <span className="font-bold text-slate-800 text-base">{c.name}</span>
+                  {c.gender && <span className="text-[10px] text-slate-500 ml-2">({c.gender})</span>}
+                  {c.designation && <span className="block text-xs text-teal-600 font-bold uppercase tracking-wider">{c.designation}</span>}
+                </td>
                 <td className="px-4 py-3 font-medium text-slate-600"><span className="flex items-center gap-1.5"><Phone size={12}/> {c.mobileNumber}</span>{c.whatsappNumber && <span className="flex items-center gap-1.5 mt-1 text-green-600"><MessageSquare size={12}/> {c.whatsappNumber}</span>}</td>
-                <td className="px-4 py-3 text-xs font-medium text-slate-500"><span className="block text-slate-700 font-bold">{c.place || '-'}, {c.panchayat || '-'}</span>{c.houseName && <span>{c.houseName}</span>} {c.wardNumber && <span>(Ward: {c.wardNumber})</span>}</td>
+                <td className="px-4 py-3 text-xs font-medium text-slate-500">
+                  <span className="block text-slate-700 font-bold">{c.place || '-'}, PO: {c.postOffice || '-'}, PIN: {c.pinCode || '-'}, {c.localBody || c.panchayat || '-'}</span>
+                  {c.houseName && <span>{c.houseName} </span>} {c.wardNumber && <span>(Ward: {c.wardNumber})</span>}
+                </td>
                 <td className="px-4 py-3 text-center"><span className="bg-slate-800 text-white font-black px-3 py-1 rounded-full">{c.visits}</span></td>
                 <td className="px-4 py-3 text-xs font-bold text-slate-500">{formatDate(c.lastVisit)}</td>
               </tr>
@@ -1025,9 +1051,15 @@ const PrintCitizenDirectory = ({ citizens, onComplete }) => {
           <tbody>
             {citizens.map((c,i) => (
               <tr key={i}>
-                <td className="border border-slate-300 p-2"><strong className="text-sm block">{c.name}</strong>{c.designation && <span className="text-[10px] text-slate-500 uppercase">{c.designation}</span>}</td>
+                <td className="border border-slate-300 p-2">
+                  <strong className="text-sm block">{c.name} {c.gender && `(${c.gender})`}</strong>
+                  {c.designation && <span className="text-[10px] text-slate-500 uppercase">{c.designation}</span>}
+                </td>
                 <td className="border border-slate-300 p-2"><strong className="block">{c.mobileNumber}</strong>{c.whatsappNumber && <span>WA: {c.whatsappNumber}</span>}</td>
-                <td className="border border-slate-300 p-2"><strong>{c.place || '-'}, {c.panchayat || '-'}</strong><br/><span className="text-[10px]">{c.houseName}</span></td>
+                <td className="border border-slate-300 p-2">
+                  <strong>{c.place || '-'}, PO: {c.postOffice || '-'}, PIN: {c.pinCode || '-'}, {c.localBody || c.panchayat || '-'}</strong><br/>
+                  <span className="text-[10px]">{c.houseName}</span>
+                </td>
                 <td className="border border-slate-300 p-2 text-center font-bold text-sm">{c.visits}</td>
               </tr>
             ))}
@@ -1272,7 +1304,7 @@ const ReportConfigModal = ({ onClose, onGenerate }) => {
 
 
 // Admin Direct Assignment Panel
-const AdminDirectAssignments = ({ users, tasks, addTask, triggerPrint, triggerDetailsPrint, updateTask, deleteTask }) => {
+const AdminDirectAssignments = ({ users, tasks, addTask, triggerPrint, triggerDetailsPrint, triggerViewDetails, updateTask, deleteTask }) => {
   const [desc, setDesc] = useState('');
   const [assignedTo, setAssignedTo] = useState([]);
   
@@ -1306,7 +1338,7 @@ const AdminDirectAssignments = ({ users, tasks, addTask, triggerPrint, triggerDe
           </div>
         </div>
       </form>
-      <AdminGlobalView tasks={tasks.filter(t=>t.taskType==='direct')} updateTask={updateTask} deleteTask={deleteTask} users={users} triggerPrint={triggerPrint} triggerDetailsPrint={triggerDetailsPrint} categories={['Direct Assignment']} />
+      <AdminGlobalView tasks={tasks.filter(t=>t.taskType==='direct')} updateTask={updateTask} deleteTask={deleteTask} users={users} triggerPrint={triggerPrint} triggerDetailsPrint={triggerDetailsPrint} triggerViewDetails={triggerViewDetails} categories={['Direct Assignment']} />
     </div>
   );
 };
@@ -1329,7 +1361,7 @@ const StatCard = ({ title, value, color, icon }) => {
   );
 };
 
-const AdminGlobalView = ({ tasks, updateTask, deleteTask, users, triggerPrint, triggerDetailsPrint, categories }) => {
+const AdminGlobalView = ({ tasks, updateTask, deleteTask, users, triggerPrint, triggerDetailsPrint, triggerViewDetails, categories }) => {
   const [search, setSearch] = useState('');
   const [catFilter, setCatFilter] = useState('All');
 
@@ -1422,7 +1454,7 @@ const AdminGlobalView = ({ tasks, updateTask, deleteTask, users, triggerPrint, t
             </div>
 
             <div className="pt-3 border-t border-slate-100 flex gap-2">
-              <button onClick={() => triggerDetailsPrint(t)} className="flex-1 bg-slate-800 text-white font-bold py-2 rounded-xl text-xs hover:bg-black transition-colors">Details</button>
+              <button onClick={() => triggerViewDetails(t)} className="flex-1 bg-slate-800 text-white font-bold py-2 rounded-xl text-xs hover:bg-black transition-colors">Details</button>
               <button onClick={() => toggleUnsolved(t)} className={`px-3 rounded-xl border flex items-center justify-center transition-colors ${t.status==='Unsolved' ? 'bg-amber-100 text-amber-700 border-amber-200 hover:bg-amber-200' : 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200'}`} title={t.status==='Unsolved' ? "Reopen" : "Mark Unsolved"}>{t.status==='Unsolved' ? <Activity size={14}/> : <UserX size={14}/>}</button>
             </div>
           </div>
@@ -1493,9 +1525,25 @@ const TaskDetailsModal = ({ task, onClose, updateTask, deleteTask, users, trigge
                 <div className="grid grid-cols-2 gap-4">
                   <div className="col-span-2"><label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Citizen Name</label><input type="text" value={editForm.personalDetails.name} onChange={e=>handleEditChange('name', e.target.value, true)} className="w-full border border-slate-300 p-2 rounded-lg font-bold outline-none focus:border-blue-500"/></div>
                   <div><label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Designation</label><input type="text" value={editForm.personalDetails.designation || ''} onChange={e=>handleEditChange('designation', e.target.value, true)} className="w-full border border-slate-300 p-2 rounded-lg outline-none focus:border-blue-500"/></div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Gender</label>
+                    <select value={editForm.personalDetails.gender || ''} onChange={e=>handleEditChange('gender', e.target.value, true)} className="w-full border border-slate-300 p-2 rounded-lg font-bold outline-none focus:border-blue-500">
+                      <option value="">Select...</option>
+                      <option value="Male">Male</option>
+                      <option value="Female">Female</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                  <div className="col-span-2"><label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Referral Person</label><input type="text" value={editForm.personalDetails.referralPerson || ''} onChange={e=>handleEditChange('referralPerson', e.target.value, true)} className="w-full border border-slate-300 p-2 rounded-lg font-bold outline-none focus:border-blue-500"/></div>
                   <div><label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Mobile</label><input type="text" value={editForm.personalDetails.mobileNumber} onChange={e=>handleEditChange('mobileNumber', e.target.value, true)} className="w-full border border-slate-300 p-2 rounded-lg font-bold outline-none focus:border-blue-500"/></div>
-                  <div><label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Place</label><input type="text" value={editForm.personalDetails.place || ''} onChange={e=>handleEditChange('place', e.target.value, true)} className="w-full border border-slate-300 p-2 rounded-lg outline-none focus:border-blue-500"/></div>
-                  <div><label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Panchayat</label><input type="text" value={editForm.personalDetails.panchayat || ''} onChange={e=>handleEditChange('panchayat', e.target.value, true)} className="w-full border border-slate-300 p-2 rounded-lg outline-none focus:border-blue-500"/></div>
+                  <div><label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">WhatsApp</label><input type="text" value={editForm.personalDetails.whatsappNumber || ''} onChange={e=>handleEditChange('whatsappNumber', e.target.value, true)} className="w-full border border-slate-300 p-2 rounded-lg outline-none focus:border-blue-500"/></div>
+                  <div className="col-span-2"><label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">House Name</label><input type="text" value={editForm.personalDetails.houseName || ''} onChange={e=>handleEditChange('houseName', e.target.value, true)} className="w-full border border-slate-300 p-2 rounded-lg outline-none focus:border-blue-500"/></div>
+                  <div><label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Place Name</label><input type="text" value={editForm.personalDetails.place || ''} onChange={e=>handleEditChange('place', e.target.value, true)} className="w-full border border-slate-300 p-2 rounded-lg outline-none focus:border-blue-500"/></div>
+                  <div><label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Post Office</label><input type="text" value={editForm.personalDetails.postOffice || ''} onChange={e=>handleEditChange('postOffice', e.target.value, true)} className="w-full border border-slate-300 p-2 rounded-lg outline-none focus:border-blue-500"/></div>
+                  <div><label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">PIN Code</label><input type="text" value={editForm.personalDetails.pinCode || ''} onChange={e=>handleEditChange('pinCode', e.target.value, true)} className="w-full border border-slate-300 p-2 rounded-lg outline-none focus:border-blue-500"/></div>
+                  <div><label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Local Body</label>
+                    <input type="text" value={editForm.personalDetails.localBody || editForm.personalDetails.panchayat || ''} onChange={e=>handleEditChange('localBody', e.target.value, true)} className="w-full border border-slate-300 p-2 rounded-lg outline-none focus:border-blue-500"/>
+                  </div>
                   <div><label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Ward Number</label><input type="text" value={editForm.personalDetails.wardNumber || ''} onChange={e=>handleEditChange('wardNumber', e.target.value, true)} className="w-full border border-slate-300 p-2 rounded-lg outline-none focus:border-blue-500"/></div>
                   <div><label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Priority</label>
                     <select value={editForm.priority || 'Medium'} onChange={e=>handleEditChange('priority', e.target.value)} className="w-full border border-slate-300 p-2 rounded-lg font-bold outline-none focus:border-blue-500">
@@ -1518,12 +1566,19 @@ const TaskDetailsModal = ({ task, onClose, updateTask, deleteTask, users, trigge
                 
                 <div className="pt-4 border-t border-slate-100">
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Citizen Information</p>
-                  <p className="font-black text-slate-800 text-lg">{task.personalDetails.name}</p>
+                  <p className="font-black text-slate-800 text-lg">
+                    {task.personalDetails.name}
+                    {task.personalDetails.gender && <span className="text-xs text-slate-500 font-bold ml-2">({task.personalDetails.gender})</span>}
+                  </p>
                   {task.personalDetails.designation && <p className="text-xs font-bold text-indigo-600 uppercase tracking-wider">{task.personalDetails.designation}</p>}
                   <p className="font-bold text-slate-600 mt-2 flex items-center gap-2"><Phone size={14}/> {task.personalDetails.mobileNumber}</p>
-                  {(task.personalDetails.place || task.personalDetails.panchayat || task.personalDetails.wardNumber) && (
-                    <p className="font-medium text-slate-500 text-sm mt-2 flex gap-2 items-start"><MapPin size={14} className="shrink-0 mt-0.5"/> <span>{task.personalDetails.houseName ? `${task.personalDetails.houseName}, ` : ''}{task.personalDetails.place || '-'}, {task.personalDetails.panchayat || '-'}<br/>Ward: {task.personalDetails.wardNumber || 'N/A'}</span></p>
-                  )}
+                  <p className="font-medium text-slate-500 text-sm mt-2 flex gap-2 items-start"><MapPin size={14} className="shrink-0 mt-0.5"/> 
+                    <span>
+                      {task.personalDetails.houseName ? `${task.personalDetails.houseName}, ` : ''}
+                      {task.personalDetails.place || '-'}, PO: {task.personalDetails.postOffice || '-'}, PIN: {task.personalDetails.pinCode || '-'}<br/>
+                      {task.personalDetails.localBody || task.personalDetails.panchayat || '-'}<br/>Ward: {task.personalDetails.wardNumber || 'N/A'}
+                    </span>
+                  </p>
                   {task.personalDetails.referralPerson && <p className="font-bold text-slate-700 mt-3 text-sm bg-slate-50 inline-block px-3 py-1 rounded-lg border border-slate-200">Referred by: {task.personalDetails.referralPerson}</p>}
                 </div>
                 
@@ -1599,10 +1654,10 @@ const PrintTaskDetailsReport = ({ task, users, onComplete }) => {
              </div>
              <div>
                 <h3 className="text-sm font-black mb-3 uppercase tracking-widest text-slate-400 border-b border-slate-200 pb-1">Citizen Details</h3>
-                <p className="font-bold text-slate-800 text-base">{task.personalDetails.name}</p>
+                <p className="font-bold text-slate-800 text-base">{task.personalDetails.name} {task.personalDetails.gender && `(${task.personalDetails.gender})`}</p>
                 {task.personalDetails.designation && <p className="text-xs font-bold text-indigo-600 uppercase tracking-wider">{task.personalDetails.designation}</p>}
                 <p className="font-medium text-slate-600 mt-1">{task.personalDetails.mobileNumber}</p>
-                <p className="font-medium text-slate-500 text-sm mt-1">{task.personalDetails.houseName ? `${task.personalDetails.houseName}, ` : ''}{task.personalDetails.place || '-'}, {task.personalDetails.panchayat || '-'}</p>
+                <p className="font-medium text-slate-500 text-sm mt-1">{task.personalDetails.houseName ? `${task.personalDetails.houseName}, ` : ''}{task.personalDetails.place || '-'}, PO: {task.personalDetails.postOffice || '-'}, PIN: {task.personalDetails.pinCode || '-'}, {task.personalDetails.localBody || task.personalDetails.panchayat || '-'}</p>
                 {task.personalDetails.referralPerson && <p className="font-bold text-slate-700 mt-2 text-sm">Referred by: {task.personalDetails.referralPerson}</p>}
              </div>
           </div>
@@ -1681,7 +1736,7 @@ const PrintAcknowledgeSlip = ({ task, onComplete }) => {
              <div><span className="text-slate-500 font-bold block text-[10px] uppercase tracking-wider mb-1">Citizen Name</span> <strong className="text-base">{task.personalDetails.name}</strong> {task.personalDetails.designation && <span className="text-[10px] bg-slate-200 px-1 rounded ml-1 uppercase">{task.personalDetails.designation}</span>}</div>
              <div><span className="text-slate-500 font-bold block text-[10px] uppercase tracking-wider mb-1">Contact</span> <strong>{task.personalDetails.mobileNumber}</strong></div>
              <div><span className="text-slate-500 font-bold block text-[10px] uppercase tracking-wider mb-1">Referral</span> <strong>{task.personalDetails.referralPerson || '-'}</strong></div>
-             <div><span className="text-slate-500 font-bold block text-[10px] uppercase tracking-wider mb-1">Address</span> <strong>{task.personalDetails.place || '-'}, {task.personalDetails.panchayat || '-'}</strong></div>
+             <div><span className="text-slate-500 font-bold block text-[10px] uppercase tracking-wider mb-1">Address</span> <strong>{task.personalDetails.place || '-'}, PO: {task.personalDetails.postOffice || '-'}, PIN: {task.personalDetails.pinCode || '-'}, {task.personalDetails.localBody || task.personalDetails.panchayat || '-'}</strong></div>
          </div>
 
          <div className="mb-4 shrink-0">

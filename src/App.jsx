@@ -687,6 +687,16 @@ const WorkerTab = ({ user, tasks, updateTask, isAdminOverride, taskTypeFilter, t
   );
 };
 
+const Column = ({ title, count, color, children }) => {
+  const colorMap = { slate: 'border-slate-200 text-slate-700 bg-slate-100', blue: 'border-blue-200 text-blue-700 bg-blue-100', green: 'border-green-200 text-green-700 bg-green-100' };
+  return (
+    <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 flex flex-col h-[800px] overflow-hidden">
+      <h3 className="font-bold text-lg mb-4 flex items-center justify-between pb-3 border-b border-slate-200"><span className="text-slate-800">{title}</span><span className={`text-xs px-2.5 py-1 rounded-full font-black border ${colorMap[color]}`}>{count}</span></h3>
+      <div className="flex-1 overflow-y-auto space-y-4 pr-1 pb-4 custom-scrollbar">{children}{React.Children.count(children) === 0 && <div className="text-center text-sm font-medium text-slate-400 mt-10">No tasks here</div>}</div>
+    </div>
+  );
+};
+
 const WorkerTaskCard = ({ task, user, updateTask, isUnsolved, isAdminOverride, triggerViewDetails }) => {
   const [showProgressModal, setShowProgressModal] = useState(false);
   const [updateText, setUpdateText] = useState('');
@@ -1031,9 +1041,16 @@ const AdminCitizenDirectory = ({ tasks, triggerCitizenPrint }) => {
 // Print Citizen Directory
 const PrintCitizenDirectory = ({ citizens, onComplete }) => {
   return (
-    <div className="hidden print:block fixed inset-0 bg-white z-[9999] text-black overflow-visible font-sans">
-      <button onClick={onComplete} className="print:hidden absolute top-0 left-0 bg-red-500 text-white z-[10000] p-2">Close Print View</button>
-      <div className="p-8 max-w-[210mm] mx-auto bg-white min-h-[297mm] flex flex-col">
+    <div className="hidden print:block bg-white text-black font-sans w-full">
+      <style dangerouslySetInnerHTML={{ __html: `
+          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+          @media print {
+             @page { margin: 15mm; size: A4 portrait; }
+             body { -webkit-print-color-adjust: exact; font-family: 'Inter', sans-serif; }
+          }
+      ` }} />
+      <button onClick={onComplete} className="print:hidden fixed top-4 right-4 bg-red-500 text-white z-[10000] px-4 py-2 rounded-lg font-bold shadow-lg">Close Print View</button>
+      <div className="max-w-[210mm] mx-auto bg-white">
         <div className="text-center border-b-2 border-black pb-4 mb-6">
           <h1 className="text-2xl font-bold uppercase tracking-widest mb-1 text-slate-800">PK Navas MLA Office</h1>
           <h2 className="text-lg font-semibold text-slate-500 uppercase tracking-widest">Citizen Directory & Visit Log</h2>
@@ -1050,7 +1067,7 @@ const PrintCitizenDirectory = ({ citizens, onComplete }) => {
           </thead>
           <tbody>
             {citizens.map((c,i) => (
-              <tr key={i}>
+              <tr key={i} className="break-inside-avoid">
                 <td className="border border-slate-300 p-2">
                   <strong className="text-sm block">{c.name} {c.gender && `(${c.gender})`}</strong>
                   {c.designation && <span className="text-[10px] text-slate-500 uppercase">{c.designation}</span>}
@@ -1626,17 +1643,17 @@ const TaskDetailsModal = ({ task, onClose, updateTask, deleteTask, users, trigge
 
 const PrintTaskDetailsReport = ({ task, users, onComplete }) => {
   return (
-    <div className="hidden print:flex fixed inset-0 bg-white z-[9999] text-slate-800 font-sans flex-col h-full w-full">
-       <button onClick={onComplete} className="print:hidden absolute top-0 left-0 bg-red-500 text-white z-[10000] p-2">Close Print</button>
+    <div className="hidden print:block bg-white text-slate-800 font-sans w-full">
+       <button onClick={onComplete} className="print:hidden fixed top-4 right-4 bg-red-500 text-white z-[10000] px-4 py-2 rounded-lg font-bold shadow-lg">Close Print</button>
        <style dangerouslySetInnerHTML={{ __html: `
           @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
           @media print {
-             @page { margin: 0; size: A4 portrait; }
+             @page { margin: 15mm; size: A4 portrait; }
              body { -webkit-print-color-adjust: exact; font-family: 'Inter', sans-serif; }
           }
        ` }} />
-       <div className="p-10 flex flex-col min-h-screen">
-          <div className="border-b-2 border-slate-800 pb-4 mb-8 text-center">
+       <div className="max-w-[210mm] mx-auto bg-white text-sm">
+          <div className="border-b-2 border-slate-800 pb-4 mb-8 text-center break-inside-avoid">
               <h1 className="text-2xl font-black uppercase tracking-widest text-slate-900">PK Navas MLA Office</h1>
               <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-widest mt-1">Detailed Input Report</h2>
           </div>
@@ -1683,10 +1700,10 @@ const PrintTaskDetailsReport = ({ task, users, onComplete }) => {
           </div>
 
           <div className="mt-4">
-             <h3 className="text-sm font-black mb-4 uppercase tracking-widest text-slate-400 border-b border-slate-200 pb-1">Complete Action Timeline</h3>
-             <div className="space-y-4">
+             <h3 className="text-sm font-black mb-4 uppercase tracking-widest text-slate-400 border-b border-slate-200 pb-1 break-inside-avoid">Complete Action Timeline</h3>
+             <div className="">
                {task.timeline.map((ev) => (
-                 <div key={ev.id} className="flex gap-4 items-start border-l-2 border-slate-300 pl-4 py-1 break-inside-avoid">
+                 <div key={ev.id} className="flex gap-4 items-start border-l-2 border-slate-300 pl-4 py-2 break-inside-avoid">
                    <div className="w-1/4 shrink-0">
                       <p className="text-xs font-black text-slate-500 uppercase tracking-widest">{formatDate(ev.time)}</p>
                       <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase">By: {ev.by}</p>
@@ -1700,7 +1717,7 @@ const PrintTaskDetailsReport = ({ task, users, onComplete }) => {
              </div>
           </div>
 
-          <div className="mt-auto pt-10 text-center text-[10px] font-bold uppercase tracking-widest text-slate-300">
+          <div className="mt-12 pt-6 text-center text-[10px] font-bold uppercase tracking-widest text-slate-300 break-inside-avoid">
             *** End of Document ***
           </div>
        </div>
@@ -1833,73 +1850,79 @@ const PrintMasterReport = ({ config, tasks, users, categories, onComplete }) => 
   const rangeLabel = { all: 'All Time', '1week': 'Last 7 Days', '1month': 'Last 30 Days', '6months': 'Last 6 Months', custom: `Custom Range (${config.customStart} to ${config.customEnd})` };
 
   return (
-    <div className="hidden print:block fixed inset-0 bg-white z-[9999] text-slate-900 overflow-visible font-sans">
-      <button onClick={onComplete} className="print:hidden absolute top-0 left-0 bg-red-500 text-white z-[10000] p-2">Close Report View</button>
+    <div className="hidden print:block bg-white text-slate-900 font-sans w-full">
+      <button onClick={onComplete} className="print:hidden fixed top-4 right-4 bg-red-500 text-white z-[10000] px-4 py-2 rounded-lg font-bold shadow-lg">Close Report View</button>
       <style dangerouslySetInnerHTML={{ __html: `
           @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
           @media print {
-             @page { margin: 0; size: A4 portrait; }
+             @page { margin: 15mm; size: A4 portrait; }
              body { -webkit-print-color-adjust: exact; font-family: 'Inter', sans-serif; }
           }
       ` }} />
       
-      <div className="p-8 max-w-[210mm] mx-auto bg-white min-h-[297mm] flex flex-col">
+      <div className="max-w-[210mm] mx-auto bg-white">
         {/* Header */}
-        <div className="text-center border-b-4 border-slate-800 pb-4 mb-6">
+        <div className="text-center border-b-4 border-slate-800 pb-4 mb-6 break-inside-avoid">
           <h1 className="text-3xl font-black uppercase tracking-widest mb-1">MLA Office - Tanur</h1>
           <h2 className="text-lg font-bold text-slate-600 uppercase tracking-widest">Master Performance Report</h2>
           <p className="mt-2 text-xs font-medium text-slate-500 uppercase tracking-wider"><strong>Period:</strong> {rangeLabel[config.range]} | <strong>Generated:</strong> {new Date().toLocaleString('en-IN')}</p>
         </div>
 
         {/* Global Summary */}
-        <h3 className="text-sm font-black bg-slate-100 p-2 uppercase tracking-widest mb-4 text-center rounded">Global Overview</h3>
-        <div className="grid grid-cols-5 gap-2 mb-8 text-center">
-          <div className="border border-slate-300 rounded-lg p-3 bg-slate-50"><p className="text-2xl font-black">{total}</p><p className="text-[9px] font-black text-slate-500 uppercase tracking-wider mt-1">Total Inputs</p></div>
-          <div className="border border-slate-300 rounded-lg p-3 bg-slate-50"><p className="text-2xl font-black">{comp}</p><p className="text-[9px] font-black text-slate-500 uppercase tracking-wider mt-1">Completed</p></div>
-          <div className="border border-slate-300 rounded-lg p-3 bg-slate-50"><p className="text-2xl font-black">{inprog}</p><p className="text-[9px] font-black text-slate-500 uppercase tracking-wider mt-1">In Progress</p></div>
-          <div className="border border-slate-300 rounded-lg p-3 bg-slate-50"><p className="text-2xl font-black">{pend}</p><p className="text-[9px] font-black text-slate-500 uppercase tracking-wider mt-1">Pending</p></div>
-          <div className="border border-red-200 rounded-lg p-3 bg-red-50"><p className="text-2xl font-black text-red-600">{overdue}</p><p className="text-[9px] font-black text-red-500 uppercase tracking-wider mt-1">Overdue</p></div>
+        <div className="break-inside-avoid">
+          <h3 className="text-sm font-black bg-slate-100 p-2 uppercase tracking-widest mb-4 text-center rounded">Global Overview</h3>
+          <div className="grid grid-cols-5 gap-2 mb-8 text-center">
+            <div className="border border-slate-300 rounded-lg p-3 bg-slate-50"><p className="text-2xl font-black">{total}</p><p className="text-[9px] font-black text-slate-500 uppercase tracking-wider mt-1">Total Inputs</p></div>
+            <div className="border border-slate-300 rounded-lg p-3 bg-slate-50"><p className="text-2xl font-black">{comp}</p><p className="text-[9px] font-black text-slate-500 uppercase tracking-wider mt-1">Completed</p></div>
+            <div className="border border-slate-300 rounded-lg p-3 bg-slate-50"><p className="text-2xl font-black">{inprog}</p><p className="text-[9px] font-black text-slate-500 uppercase tracking-wider mt-1">In Progress</p></div>
+            <div className="border border-slate-300 rounded-lg p-3 bg-slate-50"><p className="text-2xl font-black">{pend}</p><p className="text-[9px] font-black text-slate-500 uppercase tracking-wider mt-1">Pending</p></div>
+            <div className="border border-red-200 rounded-lg p-3 bg-red-50"><p className="text-2xl font-black text-red-600">{overdue}</p><p className="text-[9px] font-black text-red-500 uppercase tracking-wider mt-1">Overdue</p></div>
+          </div>
         </div>
 
         {/* Staff Performance */}
-        <h3 className="text-sm font-black bg-slate-100 p-2 uppercase tracking-widest mb-4 text-center rounded">Staff Performance Analytics</h3>
-        <div className="mb-4 text-center">
-          <p className="font-bold text-sm">Top Performing Officer: <span className="bg-slate-800 text-white px-3 py-1 rounded-full ml-1 text-xs uppercase tracking-wider">{topPerf}</span></p>
-        </div>
-        <table className="w-full text-sm border-collapse border border-slate-300 mb-8 rounded-lg overflow-hidden">
-          <thead>
-            <tr className="bg-slate-100 text-slate-600 uppercase tracking-wider text-[10px]">
-              <th className="border border-slate-300 p-3 text-left font-black">Officer Name</th>
-              <th className="border border-slate-300 p-3 text-center font-black">Assigned</th>
-              <th className="border border-slate-300 p-3 text-center font-black">Completed</th>
-              <th className="border border-slate-300 p-3 text-center font-black">Success Rate</th>
-            </tr>
-          </thead>
-          <tbody>
-            {staffPerf.map((s,i) => (
-              <tr key={i} className="bg-white">
-                <td className="border border-slate-300 p-3 font-bold">{s.name}</td>
-                <td className="border border-slate-300 p-3 text-center">{s.total}</td>
-                <td className="border border-slate-300 p-3 text-center">{s.completed}</td>
-                <td className="border border-slate-300 p-3 text-center font-black">{s.rate}%</td>
+        <div className="break-inside-avoid">
+          <h3 className="text-sm font-black bg-slate-100 p-2 uppercase tracking-widest mb-4 text-center rounded">Staff Performance Analytics</h3>
+          <div className="mb-4 text-center">
+            <p className="font-bold text-sm">Top Performing Officer: <span className="bg-slate-800 text-white px-3 py-1 rounded-full ml-1 text-xs uppercase tracking-wider">{topPerf}</span></p>
+          </div>
+          <table className="w-full text-sm border-collapse border border-slate-300 mb-8 rounded-lg overflow-hidden">
+            <thead>
+              <tr className="bg-slate-100 text-slate-600 uppercase tracking-wider text-[10px]">
+                <th className="border border-slate-300 p-3 text-left font-black">Officer Name</th>
+                <th className="border border-slate-300 p-3 text-center font-black">Assigned</th>
+                <th className="border border-slate-300 p-3 text-center font-black">Completed</th>
+                <th className="border border-slate-300 p-3 text-center font-black">Success Rate</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {staffPerf.map((s,i) => (
+                <tr key={i} className="bg-white">
+                  <td className="border border-slate-300 p-3 font-bold">{s.name}</td>
+                  <td className="border border-slate-300 p-3 text-center">{s.total}</td>
+                  <td className="border border-slate-300 p-3 text-center">{s.completed}</td>
+                  <td className="border border-slate-300 p-3 text-center font-black">{s.rate}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
 
         {/* Categories */}
-        <h3 className="text-sm font-black bg-slate-100 p-2 uppercase tracking-widest mb-4 text-center rounded break-inside-avoid">Input Categories Breakdown</h3>
-        <div className="grid grid-cols-2 gap-x-8 gap-y-2 mb-8 break-inside-avoid">
-          {catStats.filter(c=>c.count>0).map((c,i) => (
-            <div key={i} className="flex justify-between border-b border-slate-200 py-1 text-sm font-semibold">
-              <span className="text-slate-600">{c.name}</span><span className="font-black">{c.count}</span>
-            </div>
-          ))}
+        <div className="break-inside-avoid">
+          <h3 className="text-sm font-black bg-slate-100 p-2 uppercase tracking-widest mb-4 text-center rounded">Input Categories Breakdown</h3>
+          <div className="grid grid-cols-2 gap-x-8 gap-y-2 mb-8">
+            {catStats.filter(c=>c.count>0).map((c,i) => (
+              <div key={i} className="flex justify-between border-b border-slate-200 py-1 text-sm font-semibold">
+                <span className="text-slate-600">{c.name}</span><span className="font-black">{c.count}</span>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Detailed Breakdown */}
-        <h3 className="text-sm font-black bg-slate-100 p-2 uppercase tracking-widest mb-4 text-center rounded break-inside-avoid">Recent Records Highlight</h3>
-        <table className="w-full text-[10px] border-collapse border border-slate-300 break-inside-avoid rounded-lg overflow-hidden">
+        <h3 className="text-sm font-black bg-slate-100 p-2 uppercase tracking-widest mb-4 text-center rounded break-inside-avoid">Detailed Records Highlight</h3>
+        <table className="w-full text-[10px] border-collapse border border-slate-300 rounded-lg overflow-hidden">
           <thead>
             <tr className="bg-slate-100 text-slate-600 uppercase tracking-wider">
               <th className="border border-slate-300 p-2 text-left font-black">ID & Date</th>
@@ -1909,21 +1932,20 @@ const PrintMasterReport = ({ config, tasks, users, categories, onComplete }) => 
             </tr>
           </thead>
           <tbody>
-            {filteredTasks.slice(0, 20).map(t => (
-              <tr key={t.id} className="bg-white">
+            {filteredTasks.map(t => (
+              <tr key={t.id} className="bg-white break-inside-avoid">
                 <td className="border border-slate-300 p-2 whitespace-nowrap"><strong className="block text-slate-800">{t.id}</strong><span className="text-slate-500">{formatDate(t.createdAt)}</span></td>
                 <td className="border border-slate-300 p-2"><strong className="block text-slate-800 truncate max-w-[200px]">{t.subject || 'No Subject'}</strong><span className="text-slate-500">{t.personalDetails.name}</span></td>
-                <td className="border border-slate-300 p-2 text-slate-700 font-semibold">{t.assignedTo.map(id => users.find(u=>u.id===id)?.name.split(' ')[0]).join(', ')}</td>
+                <td className="border border-slate-300 p-2 text-slate-700 font-semibold">{t.assignedTo.map(id => users.find(u=>u.id===id)?.name).join(', ')}</td>
                 <td className="border border-slate-300 p-2 text-center font-bold">{t.status}</td>
               </tr>
             ))}
-            {filteredTasks.length > 20 && <tr><td colSpan="4" className="border border-slate-300 p-3 text-center italic text-slate-500 font-medium">... and {filteredTasks.length - 20} more records omitted for brevity.</td></tr>}
             {filteredTasks.length === 0 && <tr><td colSpan="4" className="border border-slate-300 p-4 text-center italic text-slate-500 font-medium">No records found in this date range.</td></tr>}
           </tbody>
         </table>
 
         {/* Footer */}
-        <div className="mt-auto pt-12 text-center text-[10px] font-bold uppercase tracking-widest text-slate-300">
+        <div className="mt-12 pt-6 text-center text-[10px] font-bold uppercase tracking-widest text-slate-300 break-inside-avoid">
           *** End of Master Report ***
         </div>
       </div>

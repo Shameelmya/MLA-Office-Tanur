@@ -4,7 +4,7 @@ import {
   Clock, CheckCircle, AlertTriangle, FileText, Calendar, 
   MapPin, Phone, MessageSquare, Printer, Settings, Check, 
   Send, ArrowDownUp, X, Edit, Trash2, Eye, Shield, 
-  ChevronRight, Lock, Activity, UserX, CalendarPlus, Zap, FileOutput, Database, Download, Upload, AlertOctagon, Scissors, List
+  ChevronRight, Lock, Activity, UserX, CalendarPlus, Zap, FileOutput, Database, Download, Upload, AlertOctagon, Scissors
 } from 'lucide-react';
 
 // --- FIREBASE INTEGRATION ---
@@ -267,6 +267,10 @@ export default function App() {
             <OfficerDashboard user={activeUser} tasks={tasks} updateTask={updateTask} deleteTask={deleteTask} categories={categories} designations={designations} users={users} addTask={addTask} addCategory={addCategory} addDesignation={addDesignation} triggerPrint={setTaskToPrint} triggerDetailsPrint={setTaskDetailsToPrint} isAdminOverride={currentUser.role === 'admin'} />
           )}
         </main>
+        
+        <footer className="print:hidden pb-6 pt-2 text-center text-[10px] font-black text-slate-400 tracking-widest uppercase">
+          &copy; {new Date().getFullYear()} PK Navas MLA Office Management System. All Rights Reserved.
+        </footer>
       </div>
     </>
   );
@@ -292,12 +296,10 @@ const LoginScreen = ({ onLogin, users }) => {
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col">
-      <style>
-        {`
-          @import url('https://fonts.googleapis.com/css2?family=Anek+Malayalam:wght@300;400;500;600;700&family=Scheherazade+New:wght@400;700&display=swap');
-          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
-        `}
-      </style>
+      <style dangerouslySetInnerHTML={{ __html: `
+        @import url('https://fonts.googleapis.com/css2?family=Anek+Malayalam:wght@300;400;500;600;700&family=Scheherazade+New:wght@400;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+      ` }} />
       <div className="w-full bg-slate-900 text-center py-4 px-4 shadow-md z-20 flex items-center justify-center min-h-[80px] lg:min-h-[90px]">
         <div key={quoteIndex} className="animate-in fade-in duration-1000 max-w-6xl mx-auto flex flex-col items-center gap-2">
           <p className="text-base md:text-lg lg:text-xl text-blue-100 leading-tight drop-shadow-sm" dir="rtl" style={{ fontFamily: "'Scheherazade New', serif" }}>
@@ -326,42 +328,42 @@ const LoginScreen = ({ onLogin, users }) => {
 
           <div className="p-8 md:p-12 md:w-3/5 bg-slate-50 relative">
             {!selectedUser ? (
-            <div>
-              <h2 className="text-2xl font-black text-slate-800 mb-6">Select Staff Profile</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {users.map(user => {
-                  return (
-                    <button key={user.id} disabled={!user.enabled} onClick={() => { setSelectedUser(user); setError(''); setPassword(''); }} className={`p-5 rounded-2xl border-2 text-left transition-all flex items-center gap-4 relative overflow-hidden ${!user.enabled ? 'opacity-40 grayscale bg-slate-100 border-slate-200 cursor-not-allowed' : user.role === 'admin' ? 'bg-blue-50 border-blue-200 hover:border-blue-500 hover:shadow-md' : 'bg-white border-slate-200 hover:border-indigo-400 hover:shadow-md'}`}>
-                      {!user.enabled && <div className="absolute top-3 right-3 text-slate-400"><Lock size={16}/></div>}
-                      <div className={`p-3 rounded-xl shadow-sm shrink-0 ${user.role === 'admin' ? 'bg-blue-600 text-white' : 'bg-indigo-100 text-indigo-600'}`}>{user.role === 'admin' ? <Shield size={24} /> : <User size={24} />}</div>
-                      <div>
-                        <p className="font-black text-slate-800 text-lg leading-tight">{user.name}</p>
-                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">{user.role === 'admin' ? 'Super Admin' : 'Officer Login'}</p>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          ) : (
-            <div className="h-full flex flex-col justify-center animate-in fade-in">
-              <button onClick={() => setSelectedUser(null)} className="text-sm text-blue-600 hover:text-blue-800 mb-8 flex items-center gap-1 font-bold w-fit bg-blue-50 px-3 py-1.5 rounded-md">&larr; Back to profiles</button>
-              <div className="flex items-center gap-5 mb-8 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                <div className={`p-4 rounded-2xl shadow-inner ${selectedUser.role === 'admin' ? 'bg-blue-600 text-white' : 'bg-indigo-100 text-indigo-600'}`}>{selectedUser.role === 'admin' ? <Shield size={32} /> : <User size={32} />}</div>
-                <div><h2 className="text-3xl font-black text-slate-800 tracking-tight">{selectedUser.name}</h2><p className="text-slate-500 font-medium">Enter your secure passcode</p></div>
-              </div>
-              <form onSubmit={handleLoginSubmit} className="space-y-6">
-                <div>
-                  <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full px-5 py-4 rounded-xl border border-slate-300 focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none text-xl font-medium tracking-widest" placeholder="••••••••" autoFocus />
-                  {error && <p className="mt-3 text-sm text-red-600 flex items-center gap-1.5 font-bold"><AlertTriangle size={16}/> {error}</p>}
+              <div>
+                <h2 className="text-2xl font-black text-slate-800 mb-6">Select Staff Profile</h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {users.map(user => {
+                    return (
+                      <button key={user.id} disabled={!user.enabled} onClick={() => { setSelectedUser(user); setError(''); setPassword(''); }} className={`p-5 rounded-2xl border-2 text-left transition-all flex items-center gap-4 relative overflow-hidden ${!user.enabled ? 'opacity-40 grayscale bg-slate-100 border-slate-200 cursor-not-allowed' : user.role === 'admin' ? 'bg-blue-50 border-blue-200 hover:border-blue-500 hover:shadow-md' : 'bg-white border-slate-200 hover:border-indigo-400 hover:shadow-md'}`}>
+                        {!user.enabled && <div className="absolute top-3 right-3 text-slate-400"><Lock size={16}/></div>}
+                        <div className={`p-3 rounded-xl shadow-sm shrink-0 ${user.role === 'admin' ? 'bg-blue-600 text-white' : 'bg-indigo-100 text-indigo-600'}`}>{user.role === 'admin' ? <Shield size={24} /> : <User size={24} />}</div>
+                        <div>
+                          <p className="font-black text-slate-800 text-lg leading-tight">{user.name}</p>
+                          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">{user.role === 'admin' ? 'Super Admin' : 'Officer Login'}</p>
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
-                <button type="submit" className="w-full bg-slate-900 hover:bg-black text-white font-bold py-4 px-4 rounded-xl transition-all shadow-lg transform hover:-translate-y-1 text-lg flex items-center justify-center gap-2">Secure Login <ChevronRight size={20}/></button>
-              </form>
-            </div>
-          )}
+              </div>
+            ) : (
+              <div className="h-full flex flex-col justify-center animate-in fade-in">
+                <button onClick={() => setSelectedUser(null)} className="text-sm text-blue-600 hover:text-blue-800 mb-8 flex items-center gap-1 font-bold w-fit bg-blue-50 px-3 py-1.5 rounded-md">Back to profiles</button>
+                <div className="flex items-center gap-5 mb-8 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                  <div className={`p-4 rounded-2xl shadow-inner ${selectedUser.role === 'admin' ? 'bg-blue-600 text-white' : 'bg-indigo-100 text-indigo-600'}`}>{selectedUser.role === 'admin' ? <Shield size={32} /> : <User size={32} />}</div>
+                  <div><h2 className="text-3xl font-black text-slate-800 tracking-tight">{selectedUser.name}</h2><p className="text-slate-500 font-medium">Enter your secure passcode</p></div>
+                </div>
+                <form onSubmit={handleLoginSubmit} className="space-y-6">
+                  <div>
+                    <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full px-5 py-4 rounded-xl border border-slate-300 focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none text-xl font-medium tracking-widest" placeholder="••••••••" autoFocus />
+                    {error && <p className="mt-3 text-sm text-red-600 flex items-center gap-1.5 font-bold"><AlertTriangle size={16}/> {error}</p>}
+                  </div>
+                  <button type="submit" className="w-full bg-slate-900 hover:bg-black text-white font-bold py-4 px-4 rounded-xl transition-all shadow-lg transform hover:-translate-y-1 text-lg flex items-center justify-center gap-2">Secure Login <ChevronRight size={20}/></button>
+                </form>
+              </div>
+            )}
+          </div>
         </div>
       </div>
-    </div>
     </div>
   );
 };
@@ -1036,6 +1038,41 @@ const PrintCitizenDirectory = ({ citizens, onComplete }) => {
   );
 };
 
+const AdminSettings = ({ users, updateUserDoc }) => {
+  const handleToggle = (id, field) => {
+    const u = users.find(u => u.id === id);
+    updateUserDoc(id, field, !u[field]);
+  };
+  const handleChange = (id, field, value) => updateUserDoc(id, field, value);
+
+  return (
+    <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-8 animate-in fade-in">
+      <div className="mb-8 border-b border-slate-100 pb-6"><h2 className="text-2xl font-black text-slate-800 flex items-center gap-2"><Settings className="text-indigo-600"/> Security & Contacts</h2></div>
+      <div className="space-y-6">
+        {users.filter(u => u.role !== 'admin').map(u => (
+          <div key={u.id} className={`p-6 rounded-2xl border transition-all ${!u.enabled ? 'bg-slate-50 border-slate-200 opacity-60' : 'bg-white border-slate-200 hover:border-indigo-300'}`}>
+            <div className="flex flex-col lg:flex-row gap-6 justify-between items-start">
+              <div className="flex-1 space-y-4 w-full">
+                <div className="flex items-center justify-between"><span className="font-black text-lg text-slate-800">{u.id.toUpperCase()}</span><button onClick={() => handleToggle(u.id, 'enabled')} className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest border ${u.enabled ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>{u.enabled ? 'Disable' : 'Enable'}</button></div>
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Display Name</label><input type="text" value={u.name} onChange={e=>handleChange(u.id, 'name', e.target.value)} disabled={!u.enabled} className="w-full px-3 py-2 border border-slate-300 rounded-lg font-bold outline-none focus:border-indigo-500 disabled:bg-slate-100"/></div>
+                  <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Password</label><input type="text" value={u.pass} onChange={e=>handleChange(u.id, 'pass', e.target.value)} disabled={!u.enabled} className="w-full px-3 py-2 border border-slate-300 rounded-lg font-bold text-slate-600 outline-none focus:border-indigo-500 disabled:bg-slate-100"/></div>
+                  <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Phone Number</label><input type="text" value={u.phone} onChange={e=>handleChange(u.id, 'phone', e.target.value)} disabled={!u.enabled} className="w-full px-3 py-2 border border-slate-300 rounded-lg font-bold outline-none focus:border-indigo-500"/></div>
+                  <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">WhatsApp Number</label><input type="text" value={u.whatsapp} onChange={e=>handleChange(u.id, 'whatsapp', e.target.value)} disabled={!u.enabled} className="w-full px-3 py-2 border border-slate-300 rounded-lg font-bold outline-none focus:border-indigo-500"/></div>
+                </div>
+              </div>
+              <div className="flex-1 w-full lg:w-auto bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
+                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 border-b border-slate-200 pb-2">Capabilities</h4>
+                <label className="flex items-center justify-between cursor-pointer"><span className="text-sm font-bold text-slate-700">Can Input</span><input type="checkbox" checked={u.canInput} onChange={()=>handleToggle(u.id, 'canInput')} className="w-4 h-4"/></label>
+                <label className="flex items-center justify-between cursor-pointer"><span className="text-sm font-bold text-slate-700">Detailed Reports</span><input type="checkbox" checked={u.canSeeReports} onChange={()=>handleToggle(u.id, 'canSeeReports')} className="w-4 h-4"/></label>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
 
 // Database & Backup Management (Manual JSON Export/Import & Reset)
 const AdminDatabase = ({ tasks, users, backupMeta, updateBackupMeta }) => {
@@ -1325,7 +1362,7 @@ const AdminGlobalView = ({ tasks, updateTask, deleteTask, users, triggerPrint, t
     if (status === 'In Progress') return 'text-amber-600';
     if (status === 'Unsolved') return 'text-slate-500';
     return 'text-red-600';
-  }
+  };
 
   return (
     <div className="space-y-6">
@@ -1428,7 +1465,7 @@ const TaskDetailsModal = ({ task, onClose, updateTask, deleteTask, users, trigge
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4 py-10 overflow-y-auto">
       <div className="bg-white rounded-3xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col relative overflow-hidden">
         {/* FIXED HEADER */}
         <div className="bg-slate-900 text-white p-6 flex justify-between items-center shrink-0">
@@ -1536,13 +1573,13 @@ const PrintTaskDetailsReport = ({ task, users, onComplete }) => {
   return (
     <div className="hidden print:flex fixed inset-0 bg-white z-[9999] text-slate-800 font-sans flex-col h-full w-full">
        <button onClick={onComplete} className="print:hidden absolute top-0 left-0 bg-red-500 text-white z-[10000] p-2">Close Print</button>
-       <style>{`
+       <style dangerouslySetInnerHTML={{ __html: `
           @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
           @media print {
              @page { margin: 0; size: A4 portrait; }
              body { -webkit-print-color-adjust: exact; font-family: 'Inter', sans-serif; }
           }
-       `}</style>
+       ` }} />
        <div className="p-10 flex flex-col min-h-screen">
           <div className="border-b-2 border-slate-800 pb-4 mb-8 text-center">
               <h1 className="text-2xl font-black uppercase tracking-widest text-slate-900">PK Navas MLA Office</h1>
@@ -1620,13 +1657,13 @@ const PrintAcknowledgeSlip = ({ task, onComplete }) => {
   return (
     <div className="hidden print:flex fixed inset-0 bg-white z-[9999] text-slate-900 font-sans flex-col h-[100vh] w-full">
       <button onClick={onComplete} className="print:hidden absolute top-0 left-0 bg-red-500 text-white z-[10000] p-2">Close Print View</button>
-      <style>{`
+      <style dangerouslySetInnerHTML={{ __html: `
           @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
           @media print {
              @page { margin: 0; size: A4 portrait; }
              body { -webkit-print-color-adjust: exact; font-family: 'Inter', sans-serif; }
           }
-      `}</style>
+      ` }} />
 
       {/* 75% Top - Office Copy */}
       <div className="h-[75%] p-10 flex flex-col relative box-border overflow-hidden">
@@ -1688,6 +1725,152 @@ const PrintAcknowledgeSlip = ({ task, onComplete }) => {
              <div className="truncate"><span className="text-slate-500 font-bold">Subject:</span> <strong>{task.subject}</strong></div>
          </div>
          <p className="text-[11px] text-center text-slate-500 font-medium italic mt-auto border-t border-slate-200 pt-4">Thank you for visiting. Your request has been securely registered.</p>
+      </div>
+    </div>
+  );
+};
+
+// --- PRINT MASTER REPORT ---
+const PrintMasterReport = ({ config, tasks, users, categories, onComplete }) => {
+  // 1. Filter tasks by date range
+  const filteredTasks = useMemo(() => {
+    let now = new Date();
+    let past = new Date();
+    if (config.range === '1week') past.setDate(now.getDate() - 7);
+    if (config.range === '1month') past.setMonth(now.getMonth() - 1);
+    if (config.range === '6months') past.setMonth(now.getMonth() - 6);
+    
+    return tasks.filter(t => {
+      const d = new Date(t.createdAt);
+      if (config.range === 'custom') {
+        const start = config.customStart ? new Date(config.customStart) : new Date(0);
+        const end = config.customEnd ? new Date(config.customEnd) : new Date();
+        end.setHours(23,59,59);
+        return d >= start && d <= end;
+      }
+      if (config.range !== 'all') return d >= past;
+      return true;
+    }).sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
+  }, [tasks, config]);
+
+  // 2. Global Stats
+  const total = filteredTasks.length;
+  const comp = filteredTasks.filter(t => t.status === 'Completed').length;
+  const inprog = filteredTasks.filter(t => t.status === 'In Progress').length;
+  const pend = filteredTasks.filter(t => t.status === 'Pending').length;
+  const overdue = filteredTasks.filter(t => t.deadline && new Date(t.deadline) < new Date() && t.status !== 'Completed').length;
+
+  // 3. Category Stats
+  const catStats = categories.map(cat => ({
+    name: cat, count: filteredTasks.filter(t => t.category === cat).length
+  })).sort((a,b)=>b.count-a.count);
+
+  // 4. Staff Performance
+  const staffPerf = users.filter(u=>u.role!=='admin').map(u => {
+    const assigned = filteredTasks.filter(t => t.assignedTo.includes(u.id));
+    const uComp = assigned.filter(t => t.officerStatuses && t.officerStatuses[u.id] === 'Completed').length;
+    const rate = assigned.length ? ((uComp / assigned.length) * 100).toFixed(0) : 0;
+    return { name: u.name, total: assigned.length, completed: uComp, rate: Number(rate) };
+  }).sort((a,b)=>b.rate - a.rate);
+  
+  const topPerf = staffPerf.length && staffPerf[0].total > 0 ? staffPerf[0].name : 'N/A';
+
+  const rangeLabel = { all: 'All Time', '1week': 'Last 7 Days', '1month': 'Last 30 Days', '6months': 'Last 6 Months', custom: `Custom Range (${config.customStart} to ${config.customEnd})` };
+
+  return (
+    <div className="hidden print:block fixed inset-0 bg-white z-[9999] text-slate-900 overflow-visible font-sans">
+      <button onClick={onComplete} className="print:hidden absolute top-0 left-0 bg-red-500 text-white z-[10000] p-2">Close Report View</button>
+      <style dangerouslySetInnerHTML={{ __html: `
+          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+          @media print {
+             @page { margin: 0; size: A4 portrait; }
+             body { -webkit-print-color-adjust: exact; font-family: 'Inter', sans-serif; }
+          }
+      ` }} />
+      
+      <div className="p-8 max-w-[210mm] mx-auto bg-white min-h-[297mm] flex flex-col">
+        {/* Header */}
+        <div className="text-center border-b-4 border-slate-800 pb-4 mb-6">
+          <h1 className="text-3xl font-black uppercase tracking-widest mb-1">MLA Office - Tanur</h1>
+          <h2 className="text-lg font-bold text-slate-600 uppercase tracking-widest">Master Performance Report</h2>
+          <p className="mt-2 text-xs font-medium text-slate-500 uppercase tracking-wider"><strong>Period:</strong> {rangeLabel[config.range]} | <strong>Generated:</strong> {new Date().toLocaleString('en-IN')}</p>
+        </div>
+
+        {/* Global Summary */}
+        <h3 className="text-sm font-black bg-slate-100 p-2 uppercase tracking-widest mb-4 text-center rounded">Global Overview</h3>
+        <div className="grid grid-cols-5 gap-2 mb-8 text-center">
+          <div className="border border-slate-300 rounded-lg p-3 bg-slate-50"><p className="text-2xl font-black">{total}</p><p className="text-[9px] font-black text-slate-500 uppercase tracking-wider mt-1">Total Inputs</p></div>
+          <div className="border border-slate-300 rounded-lg p-3 bg-slate-50"><p className="text-2xl font-black">{comp}</p><p className="text-[9px] font-black text-slate-500 uppercase tracking-wider mt-1">Completed</p></div>
+          <div className="border border-slate-300 rounded-lg p-3 bg-slate-50"><p className="text-2xl font-black">{inprog}</p><p className="text-[9px] font-black text-slate-500 uppercase tracking-wider mt-1">In Progress</p></div>
+          <div className="border border-slate-300 rounded-lg p-3 bg-slate-50"><p className="text-2xl font-black">{pend}</p><p className="text-[9px] font-black text-slate-500 uppercase tracking-wider mt-1">Pending</p></div>
+          <div className="border border-red-200 rounded-lg p-3 bg-red-50"><p className="text-2xl font-black text-red-600">{overdue}</p><p className="text-[9px] font-black text-red-500 uppercase tracking-wider mt-1">Overdue</p></div>
+        </div>
+
+        {/* Staff Performance */}
+        <h3 className="text-sm font-black bg-slate-100 p-2 uppercase tracking-widest mb-4 text-center rounded">Staff Performance Analytics</h3>
+        <div className="mb-4 text-center">
+          <p className="font-bold text-sm">Top Performing Officer: <span className="bg-slate-800 text-white px-3 py-1 rounded-full ml-1 text-xs uppercase tracking-wider">{topPerf}</span></p>
+        </div>
+        <table className="w-full text-sm border-collapse border border-slate-300 mb-8 rounded-lg overflow-hidden">
+          <thead>
+            <tr className="bg-slate-100 text-slate-600 uppercase tracking-wider text-[10px]">
+              <th className="border border-slate-300 p-3 text-left font-black">Officer Name</th>
+              <th className="border border-slate-300 p-3 text-center font-black">Assigned</th>
+              <th className="border border-slate-300 p-3 text-center font-black">Completed</th>
+              <th className="border border-slate-300 p-3 text-center font-black">Success Rate</th>
+            </tr>
+          </thead>
+          <tbody>
+            {staffPerf.map((s,i) => (
+              <tr key={i} className="bg-white">
+                <td className="border border-slate-300 p-3 font-bold">{s.name}</td>
+                <td className="border border-slate-300 p-3 text-center">{s.total}</td>
+                <td className="border border-slate-300 p-3 text-center">{s.completed}</td>
+                <td className="border border-slate-300 p-3 text-center font-black">{s.rate}%</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        {/* Categories */}
+        <h3 className="text-sm font-black bg-slate-100 p-2 uppercase tracking-widest mb-4 text-center rounded break-inside-avoid">Input Categories Breakdown</h3>
+        <div className="grid grid-cols-2 gap-x-8 gap-y-2 mb-8 break-inside-avoid">
+          {catStats.filter(c=>c.count>0).map((c,i) => (
+            <div key={i} className="flex justify-between border-b border-slate-200 py-1 text-sm font-semibold">
+              <span className="text-slate-600">{c.name}</span><span className="font-black">{c.count}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Detailed Breakdown */}
+        <h3 className="text-sm font-black bg-slate-100 p-2 uppercase tracking-widest mb-4 text-center rounded break-inside-avoid">Recent Records Highlight</h3>
+        <table className="w-full text-[10px] border-collapse border border-slate-300 break-inside-avoid rounded-lg overflow-hidden">
+          <thead>
+            <tr className="bg-slate-100 text-slate-600 uppercase tracking-wider">
+              <th className="border border-slate-300 p-2 text-left font-black">ID & Date</th>
+              <th className="border border-slate-300 p-2 text-left font-black">Subject / Citizen</th>
+              <th className="border border-slate-300 p-2 text-left font-black">Assigned</th>
+              <th className="border border-slate-300 p-2 text-center font-black">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredTasks.slice(0, 20).map(t => (
+              <tr key={t.id} className="bg-white">
+                <td className="border border-slate-300 p-2 whitespace-nowrap"><strong className="block text-slate-800">{t.id}</strong><span className="text-slate-500">{formatDate(t.createdAt)}</span></td>
+                <td className="border border-slate-300 p-2"><strong className="block text-slate-800 truncate max-w-[200px]">{t.subject || 'No Subject'}</strong><span className="text-slate-500">{t.personalDetails.name}</span></td>
+                <td className="border border-slate-300 p-2 text-slate-700 font-semibold">{t.assignedTo.map(id => users.find(u=>u.id===id)?.name.split(' ')[0]).join(', ')}</td>
+                <td className="border border-slate-300 p-2 text-center font-bold">{t.status}</td>
+              </tr>
+            ))}
+            {filteredTasks.length > 20 && <tr><td colSpan="4" className="border border-slate-300 p-3 text-center italic text-slate-500 font-medium">... and {filteredTasks.length - 20} more records omitted for brevity.</td></tr>}
+            {filteredTasks.length === 0 && <tr><td colSpan="4" className="border border-slate-300 p-4 text-center italic text-slate-500 font-medium">No records found in this date range.</td></tr>}
+          </tbody>
+        </table>
+
+        {/* Footer */}
+        <div className="mt-auto pt-12 text-center text-[10px] font-bold uppercase tracking-widest text-slate-300">
+          *** End of Master Report ***
+        </div>
       </div>
     </div>
   );

@@ -4,7 +4,7 @@ import {
   Clock, CheckCircle, AlertTriangle, FileText, Calendar, 
   MapPin, Phone, MessageSquare, Printer, Settings, Check, 
   Send, ArrowDownUp, X, Edit, Trash2, Eye, Shield, 
-  ChevronRight, Lock, Activity, UserX, CalendarPlus, Zap, FileOutput, Database, Download, Upload, AlertOctagon, Scissors
+  ChevronRight, Lock, Activity, UserX, CalendarPlus, Zap, FileOutput, Database, Download, Upload, AlertOctagon, Scissors, List
 } from 'lucide-react';
 
 // --- FIREBASE INTEGRATION ---
@@ -38,6 +38,10 @@ const getNow = () => new Date().toISOString();
 const formatDate = (dateString) => {
   if (!dateString) return 'N/A';
   return new Date(dateString).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+};
+const formatTime = (dateString) => {
+  if (!dateString) return '';
+  return new Date(dateString).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
 };
 const formatWhatsAppNumber = (phone) => {
   if (!phone) return '';
@@ -435,7 +439,7 @@ const InputFormTab = ({ addTask, categories, designations, addCategory, addDesig
     const newTask = {
       id: taskId, types: form.types, category: finalCat, personalDetails: finalPersonalDetails, taskType: 'input',
       subject: form.subject, description: form.description, assignedTo: finalAssignedTo, deadline: form.deadline || null, programDate: isInvitation ? form.programDate : null,
-      status: 'Pending', officerStatuses: {}, priority: 'Medium',
+      status: 'Pending', priority: 'Medium', officerStatuses: {},
       createdAt: getNow(), createdBy: creator.name,
       timeline: [{ id: generateUid(), type: 'created', time: getNow(), by: creator.name, text: 'Input Registered' }]
     };
@@ -804,7 +808,7 @@ const AllTasksHistoryTab = ({ tasks, categories, triggerPrint, triggerDetailsPri
                     <button onClick={()=>{ triggerDetailsPrint(t); }} title="Detailed Report" className="text-slate-600 hover:bg-slate-100 p-2 rounded-lg transition-colors"><FileText size={18}/></button>
                   )}
                   {(currentUser.role === 'admin' || t.status === 'Pending') && (
-                    <button onClick={()=>{ deleteTask(t.id); }} title="Delete Input" className="text-red-500 hover:bg-red-50 p-2 rounded-lg transition-colors"><Trash2 size={18}/></button>
+                    <button onClick={async ()=>{ await deleteTask(t.id); }} title="Delete Input" className="text-red-500 hover:bg-red-50 p-2 rounded-lg transition-colors"><Trash2 size={18}/></button>
                   )}
                 </td>
               </tr>
@@ -905,7 +909,7 @@ const AdminDashboard = ({ tasks, updateTask, deleteTask, categories, designation
 // Admin Citizen Directory
 const AdminCitizenDirectory = ({ tasks, triggerCitizenPrint }) => {
   const [search, setSearch] = useState('');
-  const [sortBy, setSortBy] = useState('visits'); // 'visits', 'name', 'recent'
+  const [sortBy, setSortBy] = useState('visits'); 
   
   const citizensData = useMemo(() => {
     const map = new Map();
@@ -1304,6 +1308,24 @@ const AdminGlobalView = ({ tasks, updateTask, deleteTask, users, triggerPrint, t
   ).sort((a,b)=> new Date(b.createdAt) - new Date(a.createdAt));
   
   const toggleUnsolved = (task) => updateTask(task.id, { status: task.status === 'Unsolved' ? 'Pending' : 'Unsolved' });
+  const togglePriority = (task) => {
+    const p = ['Low', 'Medium', 'High'];
+    const next = p[(p.indexOf(task.priority || 'Medium') + 1) % 3];
+    updateTask(task.id, { priority: next });
+  };
+
+  const getPriorityColor = (priority) => {
+    if (priority === 'High') return 'bg-red-100 text-red-700 border border-red-200 hover:bg-red-200';
+    if (priority === 'Low') return 'bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200';
+    return 'bg-amber-100 text-amber-700 border border-amber-200 hover:bg-amber-200';
+  };
+
+  const getStatusColor = (status) => {
+    if (status === 'Completed') return 'text-green-600';
+    if (status === 'In Progress') return 'text-amber-600';
+    if (status === 'Unsolved') return 'text-slate-500';
+    return 'text-red-600';
+  }
 
   return (
     <div className="space-y-6">
@@ -1320,24 +1342,51 @@ const AdminGlobalView = ({ tasks, updateTask, deleteTask, users, triggerPrint, t
         {filtered.map(t => (
           <div key={t.id} className={`bg-white rounded-2xl p-5 border shadow-sm flex flex-col transition-all relative overflow-hidden ${t.status === 'Unsolved' ? 'border-slate-300 bg-slate-50 opacity-75 grayscale' : 'border-slate-200 hover:shadow-md hover:border-blue-300'}`}>
             {t.status === 'Unsolved' && <div className="absolute top-4 right-4 bg-slate-800 text-white text-[10px] font-black px-2 py-1 rounded shadow-sm uppercase z-10"><Lock size={10} className="inline mr-1"/>Unsolved</div>}
-            <div className="flex justify-between items-start mb-3">
-              <span className={`${t.taskType==='direct'?'bg-indigo-800':'bg-blue-50'} text-${t.taskType==='direct'?'white':'blue-800'} text-[10px] font-black px-2 py-1 rounded uppercase tracking-widest`}>{t.id}</span>
-              <span className={`text-[10px] font-black px-2 py-1 rounded uppercase border ${t.status==='Completed'?'bg-green-50 text-green-700 border-green-200':t.status==='In Progress'?'bg-amber-50 text-amber-700 border-amber-200':t.status==='Unsolved'?'bg-slate-100 text-slate-500 border-slate-300':'bg-red-50 text-red-700 border-red-200'}`}>{t.status}</span>
-            </div>
-            <div className="mb-4 flex-1">
-              <h3 className="font-black text-slate-800 text-lg leading-tight mb-1 line-clamp-1" title={t.subject || t.personalDetails.name}>{t.subject || t.personalDetails.name}</h3>
-              <p className="text-xs font-bold text-indigo-600 mb-2">{t.personalDetails.name} {t.personalDetails.referralPerson && `(Ref: ${t.personalDetails.referralPerson})`}</p>
-              
-              <div className="flex gap-2 mb-3">
-                <a href={`tel:${t.personalDetails.mobileNumber}`} className="bg-slate-100 p-2 rounded-lg text-slate-600 hover:bg-blue-100 hover:text-blue-600"><Phone size={16}/></a>
-                {t.personalDetails.whatsappNumber && <a href={`https://wa.me/${formatWhatsAppNumber(t.personalDetails.whatsappNumber)}`} target="_blank" rel="noreferrer" className="bg-slate-100 p-2 rounded-lg text-slate-600 hover:bg-green-100 hover:text-green-600"><MessageSquare size={16}/></a>}
+            
+            <div className="flex justify-between items-start mb-2">
+              <span className={`text-[10px] font-black px-2 py-1 rounded uppercase tracking-widest ${t.taskType === 'direct' ? 'bg-indigo-100 text-indigo-800' : 'bg-blue-50 text-blue-800'}`}>{t.id}</span>
+              <div className="text-right">
+                <span className="text-[10px] font-bold text-slate-400 block leading-tight">{formatDate(t.createdAt)}</span>
+                <span className="text-[9px] font-semibold text-slate-400 block leading-tight">{formatTime(t.createdAt)}</span>
               </div>
-              <div className="bg-slate-100 px-3 py-1.5 rounded-lg text-xs font-bold text-slate-600 uppercase mb-2 inline-block truncate max-w-full">{t.category}</div>
-              {t.description && <p className="text-sm font-medium text-slate-500 line-clamp-2 leading-snug whitespace-pre-wrap">{t.description}</p>}
             </div>
-            <div className="pt-4 border-t border-slate-100 mt-auto flex gap-2">
-              <button onClick={() => triggerDetailsPrint(t)} className="flex-1 bg-slate-800 text-white font-bold py-2 rounded-xl text-sm hover:bg-black transition-colors">Details</button>
-              <button onClick={() => toggleUnsolved(t)} className={`px-3 rounded-xl border flex items-center justify-center transition-colors ${t.status==='Unsolved' ? 'bg-amber-100 text-amber-700 border-amber-200 hover:bg-amber-200' : 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200'}`} title={t.status==='Unsolved' ? "Reopen" : "Mark Unsolved"}>{t.status==='Unsolved' ? <Activity size={16}/> : <UserX size={16}/>}</button>
+
+            <div className="mb-2 border-b border-slate-100 pb-2">
+              <h3 className="font-black text-slate-800 text-base leading-tight mb-1">{t.personalDetails.name}</h3>
+              {t.personalDetails.designation && <p className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider">{t.personalDetails.designation}</p>}
+              <div className="flex gap-2 mt-2">
+                <a href={`tel:${t.personalDetails.mobileNumber}`} className="bg-slate-100 p-1.5 rounded-lg text-slate-600 hover:bg-blue-100 hover:text-blue-600 transition-colors"><Phone size={14}/></a>
+                {t.personalDetails.whatsappNumber && <a href={`https://wa.me/${formatWhatsAppNumber(t.personalDetails.whatsappNumber)}`} target="_blank" rel="noreferrer" className="bg-slate-100 p-1.5 rounded-lg text-slate-600 hover:bg-green-100 hover:text-green-600 transition-colors"><MessageSquare size={14}/></a>}
+              </div>
+            </div>
+
+            <div className="mb-3">
+              <p className="font-bold text-slate-800 text-sm line-clamp-2" title={t.subject}>{t.subject || 'No Subject'}</p>
+              <p className="text-[10px] font-bold text-slate-500 uppercase mt-0.5">{t.category}</p>
+            </div>
+
+            <div className="mb-4 bg-slate-50 p-3 rounded-lg border border-slate-100 flex flex-col gap-2 mt-auto">
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-slate-500 font-bold">Assigned:</span>
+                <span className="font-black text-slate-700 text-right truncate max-w-[120px]" title={t.assignedTo.map(id => users.find(u=>u.id===id)?.name || id).join(', ')}>
+                  {t.assignedTo.map(id => users.find(u=>u.id===id)?.name || id).join(', ')}
+                </span>
+              </div>
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-slate-500 font-bold">Status:</span>
+                <span className={`font-black uppercase tracking-wider ${getStatusColor(t.status)}`}>{t.status}</span>
+              </div>
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-slate-500 font-bold">Priority:</span>
+                <button onClick={() => togglePriority(t)} className={`font-black uppercase tracking-wider px-2 py-0.5 rounded transition-colors ${getPriorityColor(t.priority || 'Medium')}`}>
+                  {t.priority || 'Medium'}
+                </button>
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-slate-100 flex gap-2">
+              <button onClick={() => triggerDetailsPrint(t)} className="flex-1 bg-slate-800 text-white font-bold py-2 rounded-xl text-xs hover:bg-black transition-colors">Details</button>
+              <button onClick={() => toggleUnsolved(t)} className={`px-3 rounded-xl border flex items-center justify-center transition-colors ${t.status==='Unsolved' ? 'bg-amber-100 text-amber-700 border-amber-200 hover:bg-amber-200' : 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200'}`} title={t.status==='Unsolved' ? "Reopen" : "Mark Unsolved"}>{t.status==='Unsolved' ? <Activity size={14}/> : <UserX size={14}/>}</button>
             </div>
           </div>
         ))}
@@ -1347,8 +1396,8 @@ const AdminGlobalView = ({ tasks, updateTask, deleteTask, users, triggerPrint, t
   );
 };
 
-const TaskDetailsModal = ({ task, onClose, updateTask, deleteTask, users, triggerPrint, currentUser, defaultEdit = false }) => {
-  const [isEditing, setIsEditing] = useState(defaultEdit);
+const TaskDetailsModal = ({ task, onClose, updateTask, deleteTask, users, triggerPrint, triggerDetailsPrint }) => {
+  const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState(task);
 
   useEffect(() => {
@@ -1357,59 +1406,126 @@ const TaskDetailsModal = ({ task, onClose, updateTask, deleteTask, users, trigge
     return () => window.removeEventListener('keydown', handleEsc);
   }, [onClose]);
 
-  const canEditDel = currentUser.role === 'admin' || task.status === 'Pending';
-  const canSeeDetails = currentUser.role === 'admin' || currentUser.canSeeReports;
+  const saveEdit = async () => { 
+    await updateTask(task.id, editForm); 
+    setIsEditing(false); 
+  };
+  
+  const handleEditChange = (field, value, isPersonal = false) => {
+    if (isPersonal) {
+      setEditForm(prev => ({ ...prev, personalDetails: { ...prev.personalDetails, [field]: value } }));
+    } else {
+      setEditForm(prev => ({ ...prev, [field]: value }));
+    }
+  };
 
-  const saveEdit = () => { updateTask(task.id, editForm); setIsEditing(false); };
-  const delUpd = (uid) => { if(window.confirm('Delete update?')) { const newTl = task.timeline.filter(t => t.id !== uid); updateTask(task.id, { timeline: newTl }); setEditForm({...editForm, timeline: newTl}); } };
+  const delUpd = async (uid) => { 
+    if(window.confirm('Delete this timeline update?')) { 
+      const newTl = task.timeline.filter(t => t.id !== uid); 
+      await updateTask(task.id, { timeline: newTl }); 
+      setEditForm({...editForm, timeline: newTl}); 
+    } 
+  };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4 py-10 overflow-y-auto">
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl min-h-[50vh] flex flex-col relative overflow-hidden">
-        <div className="bg-slate-900 text-white p-6 flex justify-between items-center shrink-0 sticky top-0 z-50">
-          <div><h2 className="text-2xl font-black">Detailed Report</h2><p className="text-slate-400 font-bold tracking-widest text-xs uppercase mt-1">ID: {task.id}</p></div>
+    <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col relative overflow-hidden">
+        {/* FIXED HEADER */}
+        <div className="bg-slate-900 text-white p-6 flex justify-between items-center shrink-0">
+          <div><h2 className="text-2xl font-black">Input Profile</h2><p className="text-slate-400 font-bold tracking-widest text-xs uppercase mt-1">ID: {task.id}</p></div>
           <div className="flex gap-3">
-            <button onClick={() => triggerPrint(task)} title="Print" className="bg-white/20 hover:bg-white/30 p-2 rounded-lg"><Printer size={20}/></button>
-            {canEditDel && <button onClick={async () => { if(await deleteTask(task.id)) onClose(); }} title="Delete" className="bg-red-500/20 text-red-300 hover:bg-red-500 hover:text-white p-2 rounded-lg"><Trash2 size={20}/></button>}
-            <button onClick={onClose} title="Close (Esc)" className="bg-white/10 hover:bg-white/30 p-2 rounded-lg text-white border border-white/20 flex items-center gap-1 font-bold pl-3"><X size={20}/> Close</button>
+            <button onClick={() => triggerDetailsPrint(task)} title="Print Complete Report" className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2"><Printer size={18}/> Print</button>
+            <button onClick={async () => { if(await deleteTask(task.id)) onClose(); }} title="Delete Input" className="bg-red-500/20 text-red-300 hover:bg-red-500 hover:text-white p-2 rounded-lg transition-colors"><Trash2 size={20}/></button>
+            <button onClick={onClose} title="Close (Esc)" className="bg-white/10 hover:bg-white/30 px-4 py-2 rounded-lg text-white border border-white/20 flex items-center gap-2 font-bold transition-colors"><X size={20}/> Close</button>
           </div>
         </div>
-        <div className="flex flex-col md:flex-row flex-1 overflow-y-auto">
-          <div className={`p-8 ${canSeeDetails ? 'md:w-1/2 border-r border-slate-100' : 'w-full'} space-y-6 bg-slate-50/50`}>
-            <div className="flex justify-between items-center"><h3 className="font-black text-xl text-slate-800">Basic Info</h3>{canEditDel && <button onClick={() => setIsEditing(!isEditing)} className="text-blue-600 font-bold text-sm flex items-center gap-1 bg-blue-50 px-3 py-1.5 rounded-lg"><Edit size={14}/> {isEditing ? 'Cancel Edit' : 'Edit'}</button>}</div>
+
+        {/* SCROLLABLE CONTENT */}
+        <div className="flex flex-col md:flex-row flex-1 overflow-y-auto bg-slate-50">
+          {/* Left Column: Details */}
+          <div className="p-8 md:w-1/2 border-r border-slate-200 space-y-6">
+            <div className="flex justify-between items-center">
+              <h3 className="font-black text-xl text-slate-800">Master Data</h3>
+              <button onClick={() => setIsEditing(!isEditing)} className={`font-bold text-sm flex items-center gap-1 px-4 py-2 rounded-lg transition-colors ${isEditing ? 'bg-red-100 text-red-700 hover:bg-red-200' : 'bg-blue-100 text-blue-700 hover:bg-blue-200'}`}>
+                {isEditing ? <><X size={14}/> Cancel</> : <><Edit size={14}/> Edit All</>}
+              </button>
+            </div>
+            
             {isEditing ? (
-              <div className="space-y-4">
-                <div><label className="text-xs font-bold text-slate-500 uppercase">Subject</label><input type="text" value={editForm.subject} onChange={e=>setEditForm({...editForm, subject: e.target.value})} className="w-full border p-2 rounded-lg"/></div>
-                <div><label className="text-xs font-bold text-slate-500 uppercase">Category</label><input type="text" value={editForm.category} onChange={e=>setEditForm({...editForm, category: e.target.value})} className="w-full border p-2 rounded-lg"/></div>
-                <div><label className="text-xs font-bold text-slate-500 uppercase">Description</label><textarea value={editForm.description} onChange={e=>setEditForm({...editForm, description: e.target.value})} className="w-full border p-2 rounded-lg h-24"></textarea></div>
-                <button onClick={saveEdit} className="w-full bg-blue-600 text-white font-bold py-3 rounded-xl">Save Changes</button>
+              <div className="space-y-4 bg-white p-6 rounded-xl border border-slate-200 shadow-inner">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="col-span-2"><label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Citizen Name</label><input type="text" value={editForm.personalDetails.name} onChange={e=>handleEditChange('name', e.target.value, true)} className="w-full border border-slate-300 p-2 rounded-lg font-bold outline-none focus:border-blue-500"/></div>
+                  <div><label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Designation</label><input type="text" value={editForm.personalDetails.designation || ''} onChange={e=>handleEditChange('designation', e.target.value, true)} className="w-full border border-slate-300 p-2 rounded-lg outline-none focus:border-blue-500"/></div>
+                  <div><label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Mobile</label><input type="text" value={editForm.personalDetails.mobileNumber} onChange={e=>handleEditChange('mobileNumber', e.target.value, true)} className="w-full border border-slate-300 p-2 rounded-lg font-bold outline-none focus:border-blue-500"/></div>
+                  <div><label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Place</label><input type="text" value={editForm.personalDetails.place || ''} onChange={e=>handleEditChange('place', e.target.value, true)} className="w-full border border-slate-300 p-2 rounded-lg outline-none focus:border-blue-500"/></div>
+                  <div><label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Panchayat</label><input type="text" value={editForm.personalDetails.panchayat || ''} onChange={e=>handleEditChange('panchayat', e.target.value, true)} className="w-full border border-slate-300 p-2 rounded-lg outline-none focus:border-blue-500"/></div>
+                  <div><label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Ward Number</label><input type="text" value={editForm.personalDetails.wardNumber || ''} onChange={e=>handleEditChange('wardNumber', e.target.value, true)} className="w-full border border-slate-300 p-2 rounded-lg outline-none focus:border-blue-500"/></div>
+                  <div><label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Priority</label>
+                    <select value={editForm.priority || 'Medium'} onChange={e=>handleEditChange('priority', e.target.value)} className="w-full border border-slate-300 p-2 rounded-lg font-bold outline-none focus:border-blue-500">
+                      <option value="Low">Low</option><option value="Medium">Medium</option><option value="High">High</option>
+                    </select>
+                  </div>
+                  <div><label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Status</label>
+                    <select value={editForm.status} onChange={e=>handleEditChange('status', e.target.value)} className="w-full border border-slate-300 p-2 rounded-lg font-bold outline-none focus:border-blue-500">
+                      <option value="Pending">Pending</option><option value="In Progress">In Progress</option><option value="Completed">Completed</option><option value="Unsolved">Unsolved</option>
+                    </select>
+                  </div>
+                  <div className="col-span-2"><label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Subject</label><input type="text" value={editForm.subject} onChange={e=>handleEditChange('subject', e.target.value)} className="w-full border border-slate-300 p-2 rounded-lg font-bold outline-none focus:border-blue-500"/></div>
+                  <div className="col-span-2"><label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Description</label><textarea value={editForm.description} onChange={e=>handleEditChange('description', e.target.value)} className="w-full border border-slate-300 p-2 rounded-lg h-24 outline-none focus:border-blue-500"></textarea></div>
+                </div>
+                <button onClick={saveEdit} className="w-full bg-blue-600 text-white font-black py-3 rounded-xl hover:bg-blue-700 transition-colors shadow">Save Changes</button>
               </div>
             ) : (
-              <div className="space-y-6">
-                <div><p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Subject</p><p className="font-bold text-slate-800 text-lg">{task.subject || 'N/A'}</p></div>
-                <div><p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Citizen Details</p><p className="font-bold text-slate-800 text-base">{task.personalDetails.name}</p><p className="font-medium text-slate-600">{task.personalDetails.mobileNumber} • {task.personalDetails.place}</p></div>
-                <div><p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Category</p><p className="font-bold text-slate-800">{task.category}</p></div>
-                {task.description && <div><p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Description</p><p className="font-medium text-slate-700 bg-white p-4 rounded-xl border border-slate-200 whitespace-pre-wrap">{task.description}</p></div>}
-                <div><p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Meta</p><p className="font-medium text-slate-600 text-sm">Assigned: <span className="font-bold">{task.assignedTo.map(id => users.find(u=>u.id===id)?.name).join(', ')}</span></p></div>
+              <div className="space-y-6 bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Subject & Category</p><p className="font-black text-slate-800 text-xl leading-tight mb-1">{task.subject || 'N/A'}</p><p className="font-bold text-slate-600 text-sm"><span className="bg-slate-200 px-2 py-0.5 rounded text-[10px] mr-2">{task.types.join(', ')}</span> {task.category}</p></div>
+                
+                <div className="pt-4 border-t border-slate-100">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Citizen Information</p>
+                  <p className="font-black text-slate-800 text-lg">{task.personalDetails.name}</p>
+                  {task.personalDetails.designation && <p className="text-xs font-bold text-indigo-600 uppercase tracking-wider">{task.personalDetails.designation}</p>}
+                  <p className="font-bold text-slate-600 mt-2 flex items-center gap-2"><Phone size={14}/> {task.personalDetails.mobileNumber}</p>
+                  {(task.personalDetails.place || task.personalDetails.panchayat || task.personalDetails.wardNumber) && (
+                    <p className="font-medium text-slate-500 text-sm mt-2 flex gap-2 items-start"><MapPin size={14} className="shrink-0 mt-0.5"/> <span>{task.personalDetails.houseName ? `${task.personalDetails.houseName}, ` : ''}{task.personalDetails.place || '-'}, {task.personalDetails.panchayat || '-'}<br/>Ward: {task.personalDetails.wardNumber || 'N/A'}</span></p>
+                  )}
+                  {task.personalDetails.referralPerson && <p className="font-bold text-slate-700 mt-3 text-sm bg-slate-50 inline-block px-3 py-1 rounded-lg border border-slate-200">Referred by: {task.personalDetails.referralPerson}</p>}
+                </div>
+                
+                {task.description && (
+                  <div className="pt-4 border-t border-slate-100">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Description</p>
+                    <p className="font-medium text-slate-700 bg-slate-50 p-4 rounded-xl border border-slate-200 whitespace-pre-wrap text-sm leading-relaxed">{task.description}</p>
+                  </div>
+                )}
+                
+                <div className="pt-4 border-t border-slate-100 grid grid-cols-2 gap-4">
+                  <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Status</p><p className="font-black text-slate-800 text-lg uppercase">{task.status}</p></div>
+                  <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Priority</p><p className="font-black text-slate-800 text-lg uppercase">{task.priority || 'Medium'}</p></div>
+                  <div className="col-span-2"><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Assigned Officers</p><p className="font-bold text-slate-700 text-sm">{task.assignedTo.map(id => users.find(u=>u.id===id)?.name || id).join(', ')}</p></div>
+                </div>
               </div>
             )}
           </div>
-          {canSeeDetails && (
-            <div className="p-8 md:w-1/2">
-              <h3 className="font-black text-xl text-slate-800 mb-6 flex items-center gap-2"><Activity className="text-blue-600"/> Action Timeline</h3>
-              <div className="relative border-l-2 border-slate-200 ml-3 space-y-8 pb-8">
-                {task.timeline.map((ev) => (
-                  <div key={ev.id} className="relative pl-6">
-                    <div className="absolute -left-[13px] top-0 bg-white border-2 border-white rounded-full"><TimelineIcon type={ev.type} /></div>
-                    <div className="flex justify-between items-start">
-                      <div><p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">{formatDate(ev.time)}</p><p className="font-bold text-slate-800 text-sm">{ev.text}</p><p className="text-xs font-medium text-slate-500 mt-1">by {ev.by}</p></div>
-                      {ev.type === 'update' && canEditDel && <button onClick={()=>delUpd(ev.id)} className="text-red-400 hover:text-red-600 p-1 bg-red-50 rounded-md"><Trash2 size={14}/></button>}
+
+          {/* Right Column: Timeline */}
+          <div className="p-8 md:w-1/2 bg-white">
+            <h3 className="font-black text-xl text-slate-800 mb-6 flex items-center gap-2 border-b border-slate-100 pb-4"><Activity className="text-blue-600"/> Action Timeline</h3>
+            <div className="relative border-l-2 border-slate-200 ml-3 space-y-8 pb-8">
+              {task.timeline.map((ev) => (
+                <div key={ev.id} className="relative pl-6">
+                  <div className="absolute -left-[13px] top-0 bg-white border-2 border-white rounded-full"><TimelineIcon type={ev.type} /></div>
+                  <div className="flex justify-between items-start bg-slate-50 p-3 rounded-xl border border-slate-100 shadow-sm">
+                    <div>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{formatDate(ev.time)} • {formatTime(ev.time)}</p>
+                      <p className="font-bold text-slate-800 text-sm">{ev.text}</p>
+                      <p className="text-[10px] font-bold text-indigo-500 mt-1 uppercase tracking-wider">By: {ev.by}</p>
                     </div>
+                    {ev.type === 'update' && !isEditing && <button onClick={()=>delUpd(ev.id)} className="text-red-400 hover:text-red-600 hover:bg-red-50 p-1.5 rounded-lg transition-colors"><Trash2 size={14}/></button>}
                   </div>
-                ))}
-              </div>
+                </div>
+              ))}
+              {task.timeline.length === 0 && <p className="text-slate-400 font-medium italic pl-6">No actions recorded yet.</p>}
             </div>
-          )}
+          </div>
         </div>
       </div>
     </div>
@@ -1466,8 +1582,11 @@ const PrintTaskDetailsReport = ({ task, users, onComplete }) => {
           <div className="mb-8 break-inside-avoid">
              <h3 className="text-sm font-black mb-3 uppercase tracking-widest text-slate-400 border-b border-slate-200 pb-1">Assignments & Status</h3>
              <div className="flex justify-between items-center bg-white border border-slate-200 p-4 rounded-xl">
-                 <div><p className="text-[10px] text-slate-500 uppercase font-black tracking-widest">Assigned To</p><p className="font-bold text-slate-800 text-sm mt-1">{task.assignedTo.map(id => users.find(u=>u.id===id)?.name).join(', ')}</p></div>
-                 <div className="text-right"><p className="text-[10px] text-slate-500 uppercase font-black tracking-widest">Current Status</p><p className="font-black text-slate-900 text-lg uppercase mt-1">{task.status}</p></div>
+                 <div><p className="text-[10px] text-slate-500 uppercase font-black tracking-widest">Assigned To</p><p className="font-bold text-slate-800 text-sm mt-1">{task.assignedTo.map(id => users.find(u=>u.id===id)?.name || id).join(', ')}</p></div>
+                 <div className="text-right">
+                    <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest">Priority / Status</p>
+                    <p className="font-black text-slate-900 text-lg uppercase mt-1">{task.priority || 'Medium'} / {task.status}</p>
+                 </div>
              </div>
           </div>
 
@@ -1569,153 +1688,6 @@ const PrintAcknowledgeSlip = ({ task, onComplete }) => {
              <div className="truncate"><span className="text-slate-500 font-bold">Subject:</span> <strong>{task.subject}</strong></div>
          </div>
          <p className="text-[11px] text-center text-slate-500 font-medium italic mt-auto border-t border-slate-200 pt-4">Thank you for visiting. Your request has been securely registered.</p>
-      </div>
-    </div>
-  );
-};
-
-// --- PRINT MASTER REPORT ---
-const PrintMasterReport = ({ config, tasks, users, categories, onComplete }) => {
-  // 1. Filter tasks by date range
-  const filteredTasks = useMemo(() => {
-    let now = new Date();
-    let past = new Date();
-    if (config.range === '1week') past.setDate(now.getDate() - 7);
-    if (config.range === '1month') past.setMonth(now.getMonth() - 1);
-    if (config.range === '6months') past.setMonth(now.getMonth() - 6);
-    
-    return tasks.filter(t => {
-      const d = new Date(t.createdAt);
-      if (config.range === 'custom') {
-        const start = config.customStart ? new Date(config.customStart) : new Date(0);
-        const end = config.customEnd ? new Date(config.customEnd) : new Date();
-        end.setHours(23,59,59);
-        return d >= start && d <= end;
-      }
-      if (config.range !== 'all') return d >= past;
-      return true;
-    }).sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
-  }, [tasks, config]);
-
-  // 2. Global Stats
-  const total = filteredTasks.length;
-  const comp = filteredTasks.filter(t => t.status === 'Completed').length;
-  const inprog = filteredTasks.filter(t => t.status === 'In Progress').length;
-  const pend = filteredTasks.filter(t => t.status === 'Pending').length;
-  const unsolv = filteredTasks.filter(t => t.status === 'Unsolved').length;
-  const overdue = filteredTasks.filter(t => t.deadline && new Date(t.deadline) < new Date() && t.status !== 'Completed').length;
-
-  // 3. Category Stats
-  const catStats = categories.map(cat => ({
-    name: cat, count: filteredTasks.filter(t => t.category === cat).length
-  })).sort((a,b)=>b.count-a.count);
-
-  // 4. Staff Performance
-  const staffPerf = users.filter(u=>u.role!=='admin').map(u => {
-    const assigned = filteredTasks.filter(t => t.assignedTo.includes(u.id));
-    const uComp = assigned.filter(t => t.officerStatuses && t.officerStatuses[u.id] === 'Completed').length;
-    const rate = assigned.length ? ((uComp / assigned.length) * 100).toFixed(0) : 0;
-    return { name: u.name, total: assigned.length, completed: uComp, rate: Number(rate) };
-  }).sort((a,b)=>b.rate - a.rate);
-  
-  const topPerf = staffPerf.length && staffPerf[0].total > 0 ? staffPerf[0].name : 'N/A';
-
-  const rangeLabel = { all: 'All Time', '1week': 'Last 7 Days', '1month': 'Last 30 Days', '6months': 'Last 6 Months', custom: `Custom Range (${config.customStart} to ${config.customEnd})` };
-
-  return (
-    <div className="hidden print:block fixed inset-0 bg-white z-[9999] text-slate-900 overflow-visible font-sans">
-      <button onClick={onComplete} className="print:hidden absolute top-0 left-0 bg-red-500 text-white z-[10000] p-2">Close Report View</button>
-      <style>{`
-          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
-          @media print {
-             @page { margin: 0; size: A4 portrait; }
-             body { -webkit-print-color-adjust: exact; font-family: 'Inter', sans-serif; }
-          }
-      `}</style>
-      
-      <div className="p-8 max-w-[210mm] mx-auto bg-white min-h-[297mm] flex flex-col">
-        {/* Header */}
-        <div className="text-center border-b-4 border-slate-800 pb-4 mb-6">
-          <h1 className="text-3xl font-black uppercase tracking-widest mb-1">MLA Office - Tanur</h1>
-          <h2 className="text-lg font-bold text-slate-600 uppercase tracking-widest">Master Performance Report</h2>
-          <p className="mt-2 text-xs font-medium text-slate-500 uppercase tracking-wider"><strong>Period:</strong> {rangeLabel[config.range]} | <strong>Generated:</strong> {new Date().toLocaleString('en-IN')}</p>
-        </div>
-
-        {/* Global Summary */}
-        <h3 className="text-sm font-black bg-slate-100 p-2 uppercase tracking-widest mb-4 text-center rounded">Global Overview</h3>
-        <div className="grid grid-cols-5 gap-2 mb-8 text-center">
-          <div className="border border-slate-300 rounded-lg p-3 bg-slate-50"><p className="text-2xl font-black">{total}</p><p className="text-[9px] font-black text-slate-500 uppercase tracking-wider mt-1">Total Inputs</p></div>
-          <div className="border border-slate-300 rounded-lg p-3 bg-slate-50"><p className="text-2xl font-black">{comp}</p><p className="text-[9px] font-black text-slate-500 uppercase tracking-wider mt-1">Completed</p></div>
-          <div className="border border-slate-300 rounded-lg p-3 bg-slate-50"><p className="text-2xl font-black">{inprog}</p><p className="text-[9px] font-black text-slate-500 uppercase tracking-wider mt-1">In Progress</p></div>
-          <div className="border border-slate-300 rounded-lg p-3 bg-slate-50"><p className="text-2xl font-black">{pend}</p><p className="text-[9px] font-black text-slate-500 uppercase tracking-wider mt-1">Pending</p></div>
-          <div className="border border-red-200 rounded-lg p-3 bg-red-50"><p className="text-2xl font-black text-red-600">{overdue}</p><p className="text-[9px] font-black text-red-500 uppercase tracking-wider mt-1">Overdue</p></div>
-        </div>
-
-        {/* Staff Performance */}
-        <h3 className="text-sm font-black bg-slate-100 p-2 uppercase tracking-widest mb-4 text-center rounded">Staff Performance Analytics</h3>
-        <div className="mb-4 text-center">
-          <p className="font-bold text-sm">Top Performing Officer: <span className="bg-slate-800 text-white px-3 py-1 rounded-full ml-1 text-xs uppercase tracking-wider">{topPerf}</span></p>
-        </div>
-        <table className="w-full text-sm border-collapse border border-slate-300 mb-8 rounded-lg overflow-hidden">
-          <thead>
-            <tr className="bg-slate-100 text-slate-600 uppercase tracking-wider text-[10px]">
-              <th className="border border-slate-300 p-3 text-left font-black">Officer Name</th>
-              <th className="border border-slate-300 p-3 text-center font-black">Assigned</th>
-              <th className="border border-slate-300 p-3 text-center font-black">Completed</th>
-              <th className="border border-slate-300 p-3 text-center font-black">Success Rate</th>
-            </tr>
-          </thead>
-          <tbody>
-            {staffPerf.map((s,i) => (
-              <tr key={i} className="bg-white">
-                <td className="border border-slate-300 p-3 font-bold">{s.name}</td>
-                <td className="border border-slate-300 p-3 text-center">{s.total}</td>
-                <td className="border border-slate-300 p-3 text-center">{s.completed}</td>
-                <td className="border border-slate-300 p-3 text-center font-black">{s.rate}%</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        {/* Categories */}
-        <h3 className="text-sm font-black bg-slate-100 p-2 uppercase tracking-widest mb-4 text-center rounded break-inside-avoid">Input Categories Breakdown</h3>
-        <div className="grid grid-cols-2 gap-x-8 gap-y-2 mb-8 break-inside-avoid">
-          {catStats.filter(c=>c.count>0).map((c,i) => (
-            <div key={i} className="flex justify-between border-b border-slate-200 py-1 text-sm font-semibold">
-              <span className="text-slate-600">{c.name}</span><span className="font-black">{c.count}</span>
-            </div>
-          ))}
-        </div>
-
-        {/* Detailed Breakdown */}
-        <h3 className="text-sm font-black bg-slate-100 p-2 uppercase tracking-widest mb-4 text-center rounded break-inside-avoid">Recent Records Highlight</h3>
-        <table className="w-full text-[10px] border-collapse border border-slate-300 break-inside-avoid rounded-lg overflow-hidden">
-          <thead>
-            <tr className="bg-slate-100 text-slate-600 uppercase tracking-wider">
-              <th className="border border-slate-300 p-2 text-left font-black">ID & Date</th>
-              <th className="border border-slate-300 p-2 text-left font-black">Subject / Citizen</th>
-              <th className="border border-slate-300 p-2 text-left font-black">Assigned</th>
-              <th className="border border-slate-300 p-2 text-center font-black">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredTasks.slice(0, 20).map(t => (
-              <tr key={t.id} className="bg-white">
-                <td className="border border-slate-300 p-2 whitespace-nowrap"><strong className="block text-slate-800">{t.id}</strong><span className="text-slate-500">{formatDate(t.createdAt)}</span></td>
-                <td className="border border-slate-300 p-2"><strong className="block text-slate-800 truncate max-w-[200px]">{t.subject || 'No Subject'}</strong><span className="text-slate-500">{t.personalDetails.name}</span></td>
-                <td className="border border-slate-300 p-2 text-slate-700 font-semibold">{t.assignedTo.map(id => users.find(u=>u.id===id)?.name.split(' ')[0]).join(', ')}</td>
-                <td className="border border-slate-300 p-2 text-center font-bold">{t.status}</td>
-              </tr>
-            ))}
-            {filteredTasks.length > 20 && <tr><td colSpan="4" className="border border-slate-300 p-3 text-center italic text-slate-500 font-medium">... and {filteredTasks.length - 20} more records omitted for brevity.</td></tr>}
-            {filteredTasks.length === 0 && <tr><td colSpan="4" className="border border-slate-300 p-4 text-center italic text-slate-500 font-medium">No records found in this date range.</td></tr>}
-          </tbody>
-        </table>
-
-        {/* Footer */}
-        <div className="mt-auto pt-12 text-center text-[10px] font-bold uppercase tracking-widest text-slate-300">
-          *** End of Master Report ***
-        </div>
       </div>
     </div>
   );

@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Users, User, LogOut, Plus, Search, Filter, BarChart3, 
   Clock, CheckCircle, AlertTriangle, FileText, Calendar, 
   MapPin, Phone, MessageSquare, Printer, Settings, Check, 
   Send, ArrowDownUp, X, Edit, Trash2, Eye, Shield, 
-  ChevronRight, Lock, Activity, UserX, CalendarPlus, Zap, FileOutput, Database, Download, Upload, AlertOctagon
+  ChevronRight, Lock, Activity, UserX, CalendarPlus, Zap, FileOutput, Database, Download, Upload, AlertOctagon, Scissors, List
 } from 'lucide-react';
 
 // --- FIREBASE INTEGRATION ---
@@ -27,7 +27,6 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'mla-office-tanur';
 
-// Safe references using the mandatory path structure
 const getColRef = (colName) => collection(db, 'artifacts', appId, 'public', 'data', colName);
 const getDocRef = (colName, docId) => doc(db, 'artifacts', appId, 'public', 'data', colName, docId);
 
@@ -45,10 +44,8 @@ const formatWhatsAppNumber = (phone) => {
   return cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
 };
 
-const DEFAULT_CATEGORIES = [
-  'Invitation', 'Road Complaint', 'Help Request', 
-  'Personal Complaint', 'Confidential Info', 'Others'
-];
+const DEFAULT_CATEGORIES = ['Invitation', 'Road Complaint', 'Help Request', 'Personal Complaint', 'Confidential Info', 'Others'];
+const DEFAULT_DESIGNATIONS = ['Citizen', 'Panchayath President', 'Panchayath Secretary', 'Ward Member', 'Asha Worker', 'Political Leader', 'Others'];
 const INPUT_TYPES = ['Letter', 'Phone Call', 'Direct Visit', 'WhatsApp Message', 'Email', 'Others'];
 
 const DEFAULT_USERS = [
@@ -61,66 +58,18 @@ const DEFAULT_USERS = [
 ];
 
 const ISLAMIC_QUOTES = [
-  {
-    arabic: "إِنَّ ٱللَّهَ يَأْمُرُكُمْ أَن تُؤَدُّوا۟ ٱلْأَمَـٰنَـٰتِ إِلَىٰٓ أَهْلِهَا وَإِذَا حَكَمْتُم بَيْنَ ٱلنَّاسِ أَن تَحْكُمُوا۟ بِٱلْعَدْلِ",
-    malayalam: "തീർച്ചയായും അമാനത്തുകൾ (ബാധ്യതകൾ) അതിൻ്റെ അവകാശികൾക്ക് കൊടുത്തു വീട്ടണമെന്നും, ജനങ്ങൾക്കിടയിൽ തീർപ്പുകൽപ്പിക്കുകയാണെങ്കിൽ നീതിയോടെ വേണം തീർപ്പുകൽപ്പിക്കാനെന്നും അല്ലാഹു നിങ്ങളോട് കൽപ്പിക്കുന്നു. (ഖുർആൻ 4:58)"
-  },
-  {
-    arabic: "ٱعْدِلُوا۟ هُوَ أَقْرَبُ لِلتَّقْوَىٰ",
-    malayalam: "നിങ്ങൾ നീതി പാലിക്കുക; അതാണ് ഭക്തിയോട് ഏറ്റവും അടുത്തത്. (ഖുർആൻ 5:8)"
-  },
-  {
-    arabic: "وَأَحْسِنُوٓا۟ ۛ إِنَّ ٱللَّهَ يُحِبُّ ٱلْمُحْسِنِينَ",
-    malayalam: "നിങ്ങൾ ജനങ്ങൾക്ക് നന്മ ചെയ്യുക. നന്മ ചെയ്യുന്നവരെ തീർച്ചയായും അല്ലാഹു ഇഷ്ടപ്പെടുന്നു. (ഖുർആൻ 2:195)"
-  },
-  {
-    arabic: "وَتَعَاوَنُوا۟ عَلَى ٱلْبِرِّ وَٱلتَّقْوَىٰ ۖ وَلَا تَعَاوَنُوا۟ عَلَى ٱلْإِثْمِ وَٱلْعُدْوَٰنِ",
-    malayalam: "പുണ്യത്തിലും ഭക്തിയിലും നിങ്ങൾ പരസ്പരം സഹായിക്കുക. പാപത്തിലും അതിക്രമത്തിലും നിങ്ങൾ പരസ്പരം സഹായിക്കരുത്. (ഖുർആൻ 5:2)"
-  },
-  {
-    arabic: "فَمَن يَعْمَلْ مِثْقَالَ ذَرَّةٍ خَيْرًۭا يَرَهُۥ وَمَن يَعْمَلْ مِثْقَالَ ذَرَّةٍ شَرًّۭا يَرَهُۥ",
-    malayalam: "അപ്രകാരം ആരെങ്കിലും ഒരണുമണിത്തൂക്കം നന്മചെയ്താൽ അവനത് കാണും. ആരെങ്കിലും ഒരണുമണിത്തൂക്കം തിന്മചെയ്താൽ അവനതും കാണും. (ഖുർആൻ 99:7-8)"
-  },
-  {
-    arabic: "ٱدْفَعْ بِٱلَّتِى هِىَ أَحْسَنُ فَإِذَا ٱلَّذِى بَيْنَكَ وَبَيْنَهُۥ عَدَٰوَةٌۭ كَأَنَّهُۥ وَلِىٌّ حَمِيمٌۭ",
-    malayalam: "ഏറ്റവും നല്ലതേതാണോ അതുകൊണ്ട് നീ തിന്മയെ പ്രതിരോധിക്കുക. അപ്പോൾ നിന്നോട് ശത്രുതയുള്ളവൻ പോലും നിൻ്റെ ഉറ്റമിത്രത്തെപ്പോലെയായിത്തീരും. (ഖുർആൻ 41:34)"
-  },
-  {
-    arabic: "يَـٰٓأَيُّهَا ٱلَّذِينَ ءَامَنُوا۟ ٱتَّقُوا۟ ٱللَّهَ وَقُولُوا۟ قَوْلًۭا سَدِيدًۭا",
-    malayalam: "സത്യവിശ്വാസികളേ, നിങ്ങൾ അല്ലാഹുവെ സൂക്ഷിക്കുകയും, നേരായ വാക്ക് പറയുകയും ചെയ്യുക. (ഖുർആൻ 33:70)"
-  },
-  {
-    arabic: "وَأَوْفُوا۟ بِٱلْعَهْدِ ۖ إِنَّ ٱلْعَهْدَ كَانَ مَسْـُٔولًۭا",
-    malayalam: "നിങ്ങൾ കരാറുകൾ (ഏറ്റെടുത്ത ബാധ്യതകൾ) പാലിക്കുക. തീർച്ചയായും കരാറുകളെപ്പറ്റി നിങ്ങളോട് ചോദിക്കപ്പെടുന്നതാണ്. (ഖുർആൻ 17:34)"
-  },
-  {
-    arabic: "وَعِبَادُ ٱلرَّحْمَـٰنِ ٱلَّذِينَ يَمْشُونَ عَلَى ٱلْأَرْضِ هَوْنًۭا وَإِذَا خَاطَبَهُمُ ٱلْجَـٰهِلُونَ قَالُوا۟ سَلَـٰمًۭا",
-    malayalam: "ഭൂമിയിലൂടെ വിനയത്തോടെ നടക്കുന്നവരും, അവിവേകികൾ തങ്ങളോട് സംസാരിച്ചാൽ സമാധാനപരമായി മറുപടി നൽകുന്നവരുമാകുന്നു കാരുണ്യവാനായ അല്ലാഹുവിൻ്റെ ദാസന്മാർ. (ഖുർആൻ 25:63)"
-  },
-  {
-    arabic: "فَقُولَا لَهُۥ قَوْلًۭا لَّيِّنًۭا لَّعَلَّهُۥ يَتَذَكَّرُ أَوْ يَخْشَىٰ",
-    malayalam: "നിങ്ങൾ അവനോട് മയത്തിൽ (സൗമ്യമായി) സംസാരിക്കുക. അവർ ഒരുവേള ചിന്തിച്ചു മനസ്സിലാക്കിയേക്കാം. (ഖുർആൻ 20:44)"
-  },
-  {
-    arabic: "خَيْرُ النَّاسِ أَنْفَعُهُمْ لِلنَّاسِ",
-    malayalam: "ജനങ്ങളിൽ ഏറ്റവും ഉത്തമൻ ജനങ്ങൾക്ക് ഏറ്റവും ഉപകാരം ചെയ്യുന്നവനാണ്. (ഹദീസ്)"
-  },
-  {
-    arabic: "تَبَسُّمُكَ فِي وَجْهِ أَخِيكَ لَكَ صَدَقَةٌ",
-    malayalam: "നിൻ്റെ സഹോദരൻ്റെ മുഖത്ത് നോക്കി നീ പുഞ്ചിരിക്കുന്നത് ഒരു ധർമ്മമാണ് (സ്വദഖ). (ഹദീസ്)"
-  },
-  {
-    arabic: "يَسِّرُوا وَلا تُعَسِّرُوا، وَبَشِّرُوا وَلا تُنَفِّرُوا",
-    malayalam: "നിങ്ങൾ ജനങ്ങൾക്ക് കാര്യങ്ങൾ എളുപ്പമാക്കിക്കൊടുക്കുക, പ്രയാസകരമാക്കരുത്. സന്തോഷവാർത്ത അറിയിക്കുക, വെറുപ്പിക്കരുത്. (ഹദീസ്)"
-  },
-  {
-    arabic: "وَاللَّهُ فِي عَوْنِ الْعَبْدِ مَا كَانَ الْعَبْدُ فِي عَوْنِ أَخِيهِ",
-    malayalam: "ഒരുവൻ തൻ്റെ സഹോദരനെ സഹായിച്ചുകൊണ്ടിരിക്കുന്ന കാലമത്രയും അല്ലാഹു അവനെ സഹായിച്ചുകൊണ്ടിരിക്കും. (ഹദീസ്)"
-  },
-  {
-    arabic: "الرَّاحِمُونَ يَرْحَمُهُمُ الرَّحْمَنُ، ارْحَمُوا مَنْ فِي الأَرْضِ يَرْحَمْكُمْ مَنْ فِي السَّمَاءِ",
-    malayalam: "കരുണ കാണിക്കുന്നവരോട് പരമകാരുണികനായ അല്ലാഹു കരുണ കാണിക്കും. അതിനാൽ ഭൂമിയിലുള്ളവരോട് നിങ്ങൾ കരുണ കാണിക്കുക, ആകാശത്തുള്ളവൻ നിങ്ങളോട് കരുണ കാണിക്കും. (ഹദീസ്)"
-  }
+  { arabic: "إِنَّ ٱللَّهَ يَأْمُرُكُمْ أَن تُؤَدُّوا۟ ٱلْأَمَـٰنَـٰتِ إِلَىٰٓ أَهْلِهَا وَإِذَا حَكَمْتُم بَيْنَ ٱلنَّاسِ أَن تَحْكُمُوا۟ بِٱلْعَدْلِ", malayalam: "തീർച്ചയായും അമാനത്തുകൾ (ബാധ്യതകൾ) അതിൻ്റെ അവകാശികൾക്ക് കൊടുത്തു വീട്ടണമെന്നും, ജനങ്ങൾക്കിടയിൽ തീർപ്പുകൽപ്പിക്കുകയാണെങ്കിൽ നീതിയോടെ വേണം തീർപ്പുകൽപ്പിക്കാനെന്നും അല്ലാഹു നിങ്ങളോട് കൽപ്പിക്കുന്നു. (ഖുർആൻ 4:58)" },
+  { arabic: "ٱعْدِلُوا۟ هُوَ أَقْرَبُ لِلتَّقْوَىٰ", malayalam: "നിങ്ങൾ നീതി പാലിക്കുക; അതാണ് ഭക്തിയോട് ഏറ്റവും അടുത്തത്. (ഖുർആൻ 5:8)" },
+  { arabic: "وَأَحْسِنُوٓا۟ ۛ إِنَّ ٱللَّهَ يُحِبُّ ٱلْمُحْسِنِينَ", malayalam: "നിങ്ങൾ ജനങ്ങൾക്ക് നന്മ ചെയ്യുക. നന്മ ചെയ്യുന്നവരെ തീർച്ചയായും അല്ലാഹു ഇഷ്ടപ്പെടുന്നു. (ഖുർആൻ 2:195)" },
+  { arabic: "وَتَعَاوَنُوا۟ عَلَى ٱلْبِرِّ وَٱلتَّقْوَىٰ ۖ وَلَا تَعَاوَنُوا۟ عَلَى ٱلْإِثْمِ وَٱلْعُدْوَٰنِ", malayalam: "പുണ്യത്തിലും ഭക്തിയിലും നിങ്ങൾ പരസ്പരം സഹായിക്കുക. പാപത്തിലും അതിക്രമത്തിലും നിങ്ങൾ പരസ്പരം സഹായിക്കരുത്. (ഖുർആൻ 5:2)" },
+  { arabic: "فَمَن يَعْمَلْ مِثْقَالَ ذَرَّةٍ خَيْرًۭا يَرَهُۥ وَمَن يَعْمَلْ مِثْقَالَ ذَرَّةٍ شَرًّۭا يَرَهُۥ", malayalam: "അപ്രകാരം ആരെങ്കിലും ഒരണുമണിത്തൂക്കം നന്മചെയ്താൽ അവനത് കാണും. ആരെങ്കിലും ഒരണുമണിത്തൂക്കം തിന്മചെയ്താൽ അവനതും കാണും. (ഖുർആൻ 99:7-8)" },
+  { arabic: "ٱدْفَعْ بِٱلَّتِى هِىَ أَحْسَنُ فَإِذَا ٱلَّذِى بَيْنَكَ وَبَيْنَهُۥ عَدَٰوَةٌۭ كَأَنَّهُۥ وَلِىٌّ حَمِيمٌۭ", malayalam: "ഏറ്റവും നല്ലതേതാണോ അതുകൊണ്ട് നീ തിന്മയെ പ്രതിരോധിക്കുക. അപ്പോൾ നിന്നോട് ശത്രുതയുള്ളവൻ പോലും നിൻ്റെ ഉറ്റമിത്രത്തെപ്പോലെയായിത്തീരും. (ഖുർആൻ 41:34)" },
+  { arabic: "يَـٰٓأَيُّهَا ٱلَّذِينَ ءَامَنُوا۟ ٱتَّقُوا۟ ٱللَّهَ وَقُولُوا۟ قَوْلًۭا سَدِيدًۭا", malayalam: "സത്യവിശ്വാസികളേ, നിങ്ങൾ അല്ലാഹുവെ സൂക്ഷിക്കുകയും, നേരായ വാക്ക് പറയുകയും ചെയ്യുക. (ഖുർആൻ 33:70)" },
+  { arabic: "وَأَوْفُوا۟ بِٱلْعَهْدِ ۖ إِنَّ ٱلْعَهْدَ كَانَ مَسْـُٔولًۭا", malayalam: "നിങ്ങൾ കരാറുകൾ (ഏറ്റെടുത്ത ബാധ്യതകൾ) പാലിക്കുക. തീർച്ചയായും കരാറുകളെപ്പറ്റി നിങ്ങളോട് ചോദിക്കപ്പെടുന്നതാണ്. (ഖുർആൻ 17:34)" },
+  { arabic: "وَعِبَادُ ٱلرَّحْمَـٰنِ ٱلَّذِينَ يَمْشُونَ عَلَى ٱلْأَرْضِ هَوْنًۭا وَإِذَا خَاطَبَهُمُ ٱلْجَـٰهِلُونَ قَالُوا۟ سَلَـٰمًۭا", malayalam: "ഭൂമിയിലൂടെ വിനയത്തോടെ നടക്കുന്നവരും, അവിവേകികൾ തങ്ങളോട് സംസാരിച്ചാൽ സമാധാനപരമായി മറുപടി നൽകുന്നവരുമാകുന്നു കാരുണ്യവാനായ അല്ലാഹുവിൻ്റെ ദാസന്മാർ. (ഖുർആൻ 25:63)" },
+  { arabic: "خَيْرُ النَّاسِ أَنْفَعُهُمْ لِلنَّاسِ", malayalam: "ജനങ്ങളിൽ ഏറ്റവും ഉത്തമൻ ജനങ്ങൾക്ക് ഏറ്റവും ഉപകാരം ചെയ്യുന്നവനാണ്. (ഹദീസ്)" },
+  { arabic: "تَبَسُّمُكَ فِي وَجْهِ أَخِيكَ لَكَ صَدَقَةٌ", malayalam: "നിൻ്റെ സഹോദരൻ്റെ മുഖത്ത് നോക്കി നീ പുഞ്ചിരിക്കുന്നത് ഒരു ധർമ്മമാണ് (സ്വദഖ). (ഹദീസ്)" },
+  { arabic: "يَسِّرُوا وَلا تُعَسِّرُوا، وَبَشِّرُوا وَلا تُنَفِّرُوا", malayalam: "നിങ്ങൾ ജനങ്ങൾക്ക് കാര്യങ്ങൾ എളുപ്പമാക്കിക്കൊടുക്കുക, പ്രയാസകരമാക്കരുത്. സന്തോഷവാർത്ത അറിയിക്കുക, വെറുപ്പിക്കരുത്. (ഹദീസ്)" }
 ];
 
 // --- COMPONENTS ---
@@ -160,12 +109,10 @@ const AwarenessGraph = ({ total, completed }) => {
 
 const LiveClock = ({ className }) => {
   const [time, setTime] = useState(new Date());
-
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
-
   return (
     <span className={`flex items-center gap-1.5 ${className || ''}`}>
       <Calendar size={14} className="hidden sm:block opacity-70" />
@@ -184,13 +131,14 @@ export default function App() {
   const [impersonatedUser, setImpersonatedUser] = useState(null);
   const [tasks, setTasks] = useState([]);
   const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
+  const [designations, setDesignations] = useState(DEFAULT_DESIGNATIONS);
   const [backupMeta, setBackupMeta] = useState({ lastBackup: null, lastBackupType: null, lastImport: null });
   
-  // Printing states
   const [taskToPrint, setTaskToPrint] = useState(null);
+  const [taskDetailsToPrint, setTaskDetailsToPrint] = useState(null);
   const [masterReportConfig, setMasterReportConfig] = useState(null);
+  const [citizenDirectoryToPrint, setCitizenDirectoryToPrint] = useState(null);
 
-  // Authenticate first before fetching data (Mandatory Rule)
   useEffect(() => {
     const initAuth = async () => {
       try {
@@ -199,77 +147,59 @@ export default function App() {
         } else {
           await signInAnonymously(auth);
         }
-      } catch (err) {
-        console.error("Firebase Auth Error:", err);
-      }
+      } catch (err) { console.error("Firebase Auth Error:", err); }
     };
     initAuth();
-    
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setFbUser(user);
-    });
+    const unsubscribe = onAuthStateChanged(auth, setFbUser);
     return () => unsubscribe();
   }, []);
 
-  // Fetch Firestore Data only after auth is ready
   useEffect(() => {
     if (!fbUser) return;
-
     const savedUser = localStorage.getItem('mla_currentUser');
     if (savedUser) setCurrentUser(JSON.parse(savedUser));
 
-    const unsubTasks = onSnapshot(getColRef('tasks'), (snap) => {
-      setTasks(snap.docs.map(doc => doc.data()));
-    }, (error) => console.error("Tasks fetch error:", error));
-
+    const unsubTasks = onSnapshot(getColRef('tasks'), (snap) => setTasks(snap.docs.map(doc => doc.data())), (err) => console.error("Tasks fetch error:", err));
     const unsubUsers = onSnapshot(getColRef('users'), (snap) => {
       if (snap.empty) {
         const batch = writeBatch(db);
         DEFAULT_USERS.forEach(u => batch.set(getDocRef('users', u.id), u));
         batch.commit().catch(e => console.error("Batch init error", e));
-      } else {
-        setUsers(snap.docs.map(doc => doc.data()));
-      }
-    }, (error) => console.error("Users fetch error:", error));
+      } else setUsers(snap.docs.map(doc => doc.data()));
+    }, (err) => console.error("Users fetch error:", err));
 
-    const unsubCategories = onSnapshot(getDocRef('settings', 'categories'), (snap) => {
+    const unsubSettings = onSnapshot(getDocRef('settings', 'globals'), (snap) => {
       if (!snap.exists()) {
-        setDoc(getDocRef('settings', 'categories'), { list: DEFAULT_CATEGORIES })
-          .catch(e => console.error("Categories init error", e));
+        setDoc(getDocRef('settings', 'globals'), { categories: DEFAULT_CATEGORIES, designations: DEFAULT_DESIGNATIONS }).catch(e => console.error(e));
       } else {
-        setCategories(snap.data().list);
+        if(snap.data().categories) setCategories(snap.data().categories);
+        if(snap.data().designations) setDesignations(snap.data().designations);
       }
-    }, (error) => console.error("Categories fetch error:", error));
-
-    const unsubBackupMeta = onSnapshot(getDocRef('settings', 'backupMeta'), (snap) => {
-      if (snap.exists()) setBackupMeta(snap.data());
     });
 
-    return () => { unsubTasks(); unsubUsers(); unsubCategories(); unsubBackupMeta(); };
+    const unsubBackupMeta = onSnapshot(getDocRef('settings', 'backupMeta'), (snap) => { if (snap.exists()) setBackupMeta(snap.data()); });
+
+    return () => { unsubTasks(); unsubUsers(); unsubSettings(); unsubBackupMeta(); };
   }, [fbUser]);
 
   useEffect(() => { 
-    if (taskToPrint || masterReportConfig) setTimeout(() => window.print(), 500); 
-  }, [taskToPrint, masterReportConfig]);
+    if (taskToPrint || taskDetailsToPrint || masterReportConfig || citizenDirectoryToPrint) {
+      setTimeout(() => window.print(), 500); 
+    }
+  }, [taskToPrint, taskDetailsToPrint, masterReportConfig, citizenDirectoryToPrint]);
 
   const handleLogin = (user) => {
     setCurrentUser(user);
     localStorage.setItem('mla_currentUser', JSON.stringify(user));
   };
-  
   const handleLogout = () => {
     setCurrentUser(null);
     setImpersonatedUser(null);
     localStorage.removeItem('mla_currentUser');
   };
 
-  // Firebase CRUD Operations
-  const addTask = async (newTask) => {
-    await setDoc(getDocRef('tasks', newTask.id), newTask);
-  };
-  const updateTask = async (taskId, updates) => {
-    await updateDoc(getDocRef('tasks', taskId), updates);
-  };
+  const addTask = async (newTask) => await setDoc(getDocRef('tasks', newTask.id), newTask);
+  const updateTask = async (taskId, updates) => await updateDoc(getDocRef('tasks', taskId), updates);
   const deleteTask = async (taskId) => {
     if(window.confirm('Are you sure you want to completely delete this record?')) {
       await deleteDoc(getDocRef('tasks', taskId));
@@ -277,21 +207,14 @@ export default function App() {
     }
     return false;
   };
-  const updateUserDoc = async (userId, field, value) => {
-    await updateDoc(getDocRef('users', userId), { [field]: value });
-  };
-  const addCategory = async (newCategoryName) => {
-    const updatedList = [...categories, newCategoryName];
-    await setDoc(getDocRef('settings', 'categories'), { list: updatedList });
-  };
-  const updateBackupMeta = async (updates) => {
-    await setDoc(getDocRef('settings', 'backupMeta'), updates, { merge: true });
-  };
+  const updateUserDoc = async (userId, field, value) => await updateDoc(getDocRef('users', userId), { [field]: value });
+  
+  const addCategory = async (newCat) => await setDoc(getDocRef('settings', 'globals'), { categories: [...categories, newCat] }, { merge: true });
+  const addDesignation = async (newDesig) => await setDoc(getDocRef('settings', 'globals'), { designations: [...designations, newDesig] }, { merge: true });
+  const updateBackupMeta = async (updates) => await setDoc(getDocRef('settings', 'backupMeta'), updates, { merge: true });
 
-  // Keep track of the active user using live Firebase data
   const liveCurrentUser = currentUser ? users.find(u => u.id === currentUser.id) : null;
   
-  // Auto-logout if user is disabled by admin while logged in
   useEffect(() => {
     if (currentUser && liveCurrentUser && !liveCurrentUser.enabled && liveCurrentUser.role !== 'admin') {
       handleLogout();
@@ -301,14 +224,16 @@ export default function App() {
 
   const activeUser = impersonatedUser || liveCurrentUser;
   const isGodMode = !!impersonatedUser;
-  const isPrinting = taskToPrint || masterReportConfig;
+  const isPrinting = taskToPrint || taskDetailsToPrint || masterReportConfig || citizenDirectoryToPrint;
 
   if (!activeUser) return <LoginScreen onLogin={handleLogin} users={users} />;
 
   return (
     <>
-      {taskToPrint && <PrintAcknowledgeSlip task={taskToPrint} />}
+      {taskToPrint && <PrintAcknowledgeSlip task={taskToPrint} onComplete={()=>setTaskToPrint(null)} />}
+      {taskDetailsToPrint && <PrintTaskDetailsReport task={taskDetailsToPrint} users={users} onComplete={()=>setTaskDetailsToPrint(null)} />}
       {masterReportConfig && <PrintMasterReport config={masterReportConfig} tasks={tasks} users={users} categories={categories} onComplete={() => setMasterReportConfig(null)} />}
+      {citizenDirectoryToPrint && <PrintCitizenDirectory citizens={citizenDirectoryToPrint} onComplete={() => setCitizenDirectoryToPrint(null)} />}
 
       <div className={`min-h-screen bg-slate-100 font-sans text-slate-800 flex flex-col ${isPrinting ? 'print:hidden' : ''}`}>
         <header className={`${isGodMode ? 'bg-gradient-to-r from-red-900 to-orange-800' : 'bg-gradient-to-r from-blue-900 via-indigo-800 to-purple-900'} text-white shadow-md print:hidden transition-colors`}>
@@ -332,9 +257,9 @@ export default function App() {
 
         <main className="flex-grow max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
           {activeUser.role === 'admin' ? (
-            <AdminDashboard tasks={tasks} updateTask={updateTask} deleteTask={deleteTask} categories={categories} users={users} updateUserDoc={updateUserDoc} setImpersonatedUser={setImpersonatedUser} triggerPrint={setTaskToPrint} addTask={addTask} triggerMasterReport={setMasterReportConfig} backupMeta={backupMeta} updateBackupMeta={updateBackupMeta} />
+            <AdminDashboard tasks={tasks} updateTask={updateTask} deleteTask={deleteTask} categories={categories} designations={designations} users={users} updateUserDoc={updateUserDoc} setImpersonatedUser={setImpersonatedUser} triggerPrint={setTaskToPrint} triggerDetailsPrint={setTaskDetailsToPrint} addTask={addTask} addCategory={addCategory} addDesignation={addDesignation} triggerMasterReport={setMasterReportConfig} backupMeta={backupMeta} updateBackupMeta={updateBackupMeta} triggerCitizenPrint={setCitizenDirectoryToPrint} />
           ) : (
-            <OfficerDashboard user={activeUser} tasks={tasks} updateTask={updateTask} deleteTask={deleteTask} categories={categories} users={users} addTask={addTask} addCategory={addCategory} triggerPrint={setTaskToPrint} isAdminOverride={currentUser.role === 'admin'} />
+            <OfficerDashboard user={activeUser} tasks={tasks} updateTask={updateTask} deleteTask={deleteTask} categories={categories} designations={designations} users={users} addTask={addTask} addCategory={addCategory} addDesignation={addDesignation} triggerPrint={setTaskToPrint} triggerDetailsPrint={setTaskDetailsToPrint} isAdminOverride={currentUser.role === 'admin'} />
           )}
         </main>
       </div>
@@ -350,9 +275,7 @@ const LoginScreen = ({ onLogin, users }) => {
   const [quoteIndex, setQuoteIndex] = useState(0);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setQuoteIndex((prev) => (prev + 1) % ISLAMIC_QUOTES.length);
-    }, 10000); 
+    const interval = setInterval(() => setQuoteIndex((prev) => (prev + 1) % ISLAMIC_QUOTES.length), 10000); 
     return () => clearInterval(interval);
   }, []);
 
@@ -367,9 +290,9 @@ const LoginScreen = ({ onLogin, users }) => {
       <style>
         {`
           @import url('https://fonts.googleapis.com/css2?family=Anek+Malayalam:wght@300;400;500;600;700&family=Scheherazade+New:wght@400;700&display=swap');
+          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
         `}
       </style>
-      {/* Top Responsibility Reminder Bar */}
       <div className="w-full bg-slate-900 text-center py-4 px-4 shadow-md z-20 flex items-center justify-center min-h-[80px] lg:min-h-[90px]">
         <div key={quoteIndex} className="animate-in fade-in duration-1000 max-w-6xl mx-auto flex flex-col items-center gap-2">
           <p className="text-base md:text-lg lg:text-xl text-blue-100 leading-tight drop-shadow-sm" dir="rtl" style={{ fontFamily: "'Scheherazade New', serif" }}>
@@ -393,7 +316,6 @@ const LoginScreen = ({ onLogin, users }) => {
                 <LiveClock className="text-blue-50 text-sm font-bold tracking-wide" />
               </div>
             </div>
-            
             <div className="mt-12 hidden md:block relative z-10"><p className="text-sm text-blue-200/60 font-bold tracking-wider">&copy; {new Date().getFullYear()} SECURE SYSTEM</p></div>
           </div>
 
@@ -440,7 +362,7 @@ const LoginScreen = ({ onLogin, users }) => {
 };
 
 // --- COMBINED OFFICER DASHBOARD ---
-const OfficerDashboard = ({ user, tasks, updateTask, deleteTask, categories, users, addTask, addCategory, triggerPrint, isAdminOverride }) => {
+const OfficerDashboard = ({ user, tasks, updateTask, deleteTask, categories, designations, users, addTask, addCategory, addDesignation, triggerPrint, triggerDetailsPrint, isAdminOverride }) => {
   const [activeTab, setActiveTab] = useState(user.canInput ? 'input' : 'tasks');
 
   return (
@@ -452,23 +374,24 @@ const OfficerDashboard = ({ user, tasks, updateTask, deleteTask, categories, use
         <button onClick={() => setActiveTab('history')} className={`px-5 py-2.5 rounded-lg text-sm font-bold transition-all ${activeTab === 'history' ? 'bg-slate-800 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'}`}>History & Reports</button>
       </div>
 
-      {activeTab === 'input' && user.canInput && <InputFormTab addTask={addTask} categories={categories} addCategory={addCategory} users={users} triggerPrint={triggerPrint} creator={user} />}
+      {activeTab === 'input' && user.canInput && <InputFormTab addTask={addTask} categories={categories} designations={designations} addCategory={addCategory} addDesignation={addDesignation} users={users} triggerPrint={triggerPrint} creator={user} />}
       {activeTab === 'tasks' && <WorkerTab user={user} tasks={tasks} updateTask={updateTask} isAdminOverride={isAdminOverride} taskTypeFilter="input" />}
       {activeTab === 'direct' && <WorkerTab user={user} tasks={tasks} updateTask={updateTask} isAdminOverride={isAdminOverride} taskTypeFilter="direct" />}
-      {activeTab === 'history' && <AllTasksHistoryTab tasks={tasks} categories={categories} triggerPrint={triggerPrint} currentUser={user} updateTask={updateTask} deleteTask={deleteTask} users={users} />}
+      {activeTab === 'history' && <AllTasksHistoryTab tasks={tasks} categories={categories} triggerPrint={triggerPrint} triggerDetailsPrint={triggerDetailsPrint} currentUser={user} updateTask={updateTask} deleteTask={deleteTask} users={users} />}
     </div>
   );
 };
 
 // --- SUB-TABS ---
-const InputFormTab = ({ addTask, categories, addCategory, users, triggerPrint, creator }) => {
+const InputFormTab = ({ addTask, categories, designations, addCategory, addDesignation, users, triggerPrint, creator }) => {
   const initForm = {
     types: [], category: '', newCategory: '', programDate: '', subject: '',
-    personal: { name: '', referralPerson: '', houseName: '', place: '', postOffice: '', pinCode: '', panchayat: '', wardNumber: '', mobileNumber: '', whatsappNumber: '' },
+    personal: { name: '', designation: '', newDesignation: '', referralPerson: '', houseName: '', place: '', postOffice: '', pinCode: '', panchayat: '', wardNumber: '', mobileNumber: '', whatsappNumber: '' },
     description: '', assignedTo: [], deadline: ''
   };
   const [form, setForm] = useState(initForm);
   const [showNewCat, setShowNewCat] = useState(false);
+  const [showNewDesig, setShowNewDesig] = useState(false);
   const [sendWaMsg, setSendWaMsg] = useState(true);
   const [sendWaMsgSame, setSendWaMsgSame] = useState(false);
   const [lastTask, setLastTask] = useState(null);
@@ -479,9 +402,7 @@ const InputFormTab = ({ addTask, categories, addCategory, users, triggerPrint, c
     const { name, value } = e.target;
     setForm(prev => {
       const updated = { ...prev, personal: { ...prev.personal, [name]: value } };
-      if (name === 'mobileNumber' && sendWaMsgSame) {
-        updated.personal.whatsappNumber = value;
-      }
+      if (name === 'mobileNumber' && sendWaMsgSame) updated.personal.whatsappNumber = value;
       return updated;
     });
   };
@@ -493,16 +414,25 @@ const InputFormTab = ({ addTask, categories, addCategory, users, triggerPrint, c
       if (!categories.includes(form.newCategory)) addCategory(form.newCategory);
       finalCat = form.newCategory;
     }
+
+    let finalDesig = form.personal.designation;
+    if (showNewDesig && form.personal.newDesignation) {
+      if (!designations.includes(form.personal.newDesignation)) addDesignation(form.personal.newDesignation);
+      finalDesig = form.personal.newDesignation;
+    }
     
     let finalAssignedTo = form.assignedTo;
-    if(isInvitation) finalAssignedTo = ['admin']; // Force admin for invitations
+    if(isInvitation) finalAssignedTo = ['admin']; 
 
     if (!finalCat || form.types.length === 0 || finalAssignedTo.length === 0) return alert("Select Type, Category, and Assignees.");
     if (!form.subject.trim()) return alert("Subject is required.");
 
     const taskId = generateId();
+    const finalPersonalDetails = { ...form.personal, designation: finalDesig };
+    delete finalPersonalDetails.newDesignation;
+
     const newTask = {
-      id: taskId, types: form.types, category: finalCat, personalDetails: form.personal, taskType: 'input',
+      id: taskId, types: form.types, category: finalCat, personalDetails: finalPersonalDetails, taskType: 'input',
       subject: form.subject, description: form.description, assignedTo: finalAssignedTo, deadline: form.deadline || null, programDate: isInvitation ? form.programDate : null,
       status: 'Pending', officerStatuses: {}, priority: 'Medium',
       createdAt: getNow(), createdBy: creator.name,
@@ -512,11 +442,10 @@ const InputFormTab = ({ addTask, categories, addCategory, users, triggerPrint, c
     addTask(newTask);
     setLastTask(newTask);
     
-    // Malayalam WhatsApp Message
-    if (sendWaMsg && (form.personal.whatsappNumber || form.personal.mobileNumber)) {
-      const waNum = formatWhatsAppNumber(form.personal.whatsappNumber || form.personal.mobileNumber);
+    if (sendWaMsg && (finalPersonalDetails.whatsappNumber || finalPersonalDetails.mobileNumber)) {
+      const waNum = formatWhatsAppNumber(finalPersonalDetails.whatsappNumber || finalPersonalDetails.mobileNumber);
       if (waNum) {
-        const msg = `പ്രിയപ്പെട്ട ${form.personal.name},\n\nതാങ്കൾ പി.കെ നവാസ് എം.എൽ.എ യുടെ ഓഫീസുമായി ബന്ധപ്പെട്ടതിന് നന്ദി. നിങ്ങളുടെ അപേക്ഷ/പരാതി ഔദ്യോഗികമായി രേഖപ്പെടുത്തിയിട്ടുണ്ട്.\n\n*റഫറൻസ് ഐഡി:* ${taskId}\n\nകൂടുതൽ വിവരങ്ങൾക്ക് ഈ നമ്പറിൽ ബന്ധപ്പെടാവുന്നതാണ്.\n\nസ്നേഹത്തോടെ,\nഎം.എൽ.എ ഓഫീസ്, താനൂർ.`;
+        const msg = `പ്രിയപ്പെട്ട ${finalPersonalDetails.name},\n\nതാങ്കൾ പി.കെ നവാസ് എം.എൽ.എ യുടെ ഓഫീസുമായി ബന്ധപ്പെട്ടതിന് നന്ദി. നിങ്ങളുടെ അപേക്ഷ/പരാതി ഔദ്യോഗികമായി രേഖപ്പെടുത്തിയിട്ടുണ്ട്.\n\n*റഫറൻസ് ഐഡി:* ${taskId}\n\nകൂടുതൽ വിവരങ്ങൾക്ക് ഈ നമ്പറിൽ ബന്ധപ്പെടാവുന്നതാണ്.\n\nസ്നേഹത്തോടെ,\nഎം.എൽ.എ ഓഫീസ്, താനൂർ.`;
         window.open(`https://wa.me/${waNum}?text=${encodeURIComponent(msg)}`, '_blank');
       }
     }
@@ -575,29 +504,54 @@ const InputFormTab = ({ addTask, categories, addCategory, users, triggerPrint, c
       <div className="p-8 border-b border-slate-100">
         <h3 className="font-black text-slate-800 mb-6 flex items-center gap-2 text-lg"><User className="text-blue-600"/> Citizen Details</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {[
-            { label: 'Full Name *', n: 'name', req: true }, { label: 'Referral Person', n: 'referralPerson', req: false },
-            { label: 'Mobile Number *', n: 'mobileNumber', req: true }, { label: 'WhatsApp Number', n: 'whatsappNumber', req: false },
-            { label: 'Place', n: 'place', req: false }, { label: 'Panchayat', n: 'panchayat', req: false },
-            { label: 'House Name', n: 'houseName', req: false }, { label: 'Post Office / PIN', n: 'postOffice', req: false },
-            { label: 'Ward Number', n: 'wardNumber', req: false }
-          ].map(f => (
-            <div key={f.n}>
-              <label className="flex justify-between items-center text-xs font-black text-slate-500 uppercase tracking-widest mb-2">
-                <span>{f.label}</span>
-                {f.n === 'whatsappNumber' && (
-                  <label className="flex items-center gap-1 cursor-pointer text-blue-600 normal-case tracking-normal text-[10px] font-bold">
+          <div>
+             <label className="flex justify-between items-center text-xs font-black text-slate-500 uppercase tracking-widest mb-2"><span>Full Name *</span></label>
+             <input required name="name" value={form.personal.name} onChange={handlePersChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:bg-white focus:border-blue-500 outline-none transition-all" />
+          </div>
+          <div>
+             <label className="flex justify-between items-center text-xs font-black text-slate-500 uppercase tracking-widest mb-2"><span>Designation</span></label>
+             {!showNewDesig ? (
+                <div className="flex gap-2">
+                  <select name="designation" value={form.personal.designation} onChange={handlePersChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:bg-white focus:border-blue-500 outline-none transition-all">
+                    <option value="">Select Designation...</option>
+                    {designations.map(d => <option key={d} value={d}>{d}</option>)}
+                  </select>
+                  <button type="button" onClick={() => setShowNewDesig(true)} className="bg-blue-50 text-blue-600 px-3 rounded-xl hover:bg-blue-100"><Plus size={16}/></button>
+                </div>
+             ) : (
+                <div className="flex gap-2">
+                  <input type="text" name="newDesignation" placeholder="New Designation" value={form.personal.newDesignation} onChange={handlePersChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:bg-white focus:border-blue-500 outline-none" />
+                  <button type="button" onClick={() => { setShowNewDesig(false); setForm(prev => ({...prev, personal: {...prev.personal, newDesignation: ''}})); }} className="px-3 bg-red-50 text-red-600 rounded-xl"><X size={16}/></button>
+                </div>
+             )}
+          </div>
+          <div>
+             <label className="flex justify-between items-center text-xs font-black text-slate-500 uppercase tracking-widest mb-2"><span>Referral Person</span></label>
+             <input name="referralPerson" value={form.personal.referralPerson} onChange={handlePersChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:bg-white focus:border-blue-500 outline-none transition-all" />
+          </div>
+
+          <div>
+             <label className="flex justify-between items-center text-xs font-black text-slate-500 uppercase tracking-widest mb-2"><span>Mobile Number *</span></label>
+             <input required name="mobileNumber" value={form.personal.mobileNumber} onChange={handlePersChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:bg-white focus:border-blue-500 outline-none transition-all" />
+          </div>
+          <div>
+             <label className="flex justify-between items-center text-xs font-black text-slate-500 uppercase tracking-widest mb-2">
+                <span>WhatsApp Number</span>
+                <label className="flex items-center gap-1 cursor-pointer text-blue-600 normal-case tracking-normal text-[10px] font-bold">
                     <input type="checkbox" checked={sendWaMsgSame} onChange={(e) => {
                       const checked = e.target.checked;
                       setSendWaMsgSame(checked);
                       if (checked) setForm(prev => ({...prev, personal: {...prev.personal, whatsappNumber: prev.personal.mobileNumber}}));
                     }} className="rounded w-3 h-3"/> Same as Mobile
-                  </label>
-                )}
-              </label>
-              <input required={f.req} name={f.n} value={form.personal[f.n]} onChange={handlePersChange} disabled={f.n === 'whatsappNumber' && sendWaMsgSame} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:bg-white focus:border-blue-500 outline-none transition-all disabled:opacity-60" />
-            </div>
-          ))}
+                </label>
+             </label>
+             <input name="whatsappNumber" value={form.personal.whatsappNumber} onChange={handlePersChange} disabled={sendWaMsgSame} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:bg-white focus:border-blue-500 outline-none transition-all disabled:opacity-60" />
+          </div>
+          
+          <div><label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Place</label><input name="place" value={form.personal.place} onChange={handlePersChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:bg-white focus:border-blue-500 outline-none transition-all" /></div>
+          <div><label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Panchayat</label><input name="panchayat" value={form.personal.panchayat} onChange={handlePersChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:bg-white focus:border-blue-500 outline-none transition-all" /></div>
+          <div><label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">House Name</label><input name="houseName" value={form.personal.houseName} onChange={handlePersChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:bg-white focus:border-blue-500 outline-none transition-all" /></div>
+          <div><label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Ward Number</label><input name="wardNumber" value={form.personal.wardNumber} onChange={handlePersChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:bg-white focus:border-blue-500 outline-none transition-all" /></div>
         </div>
       </div>
 
@@ -809,12 +763,10 @@ const WorkerTaskCard = ({ task, user, updateTask, isUnsolved, isAdminOverride })
   );
 };
 
-const AllTasksHistoryTab = ({ tasks, categories, triggerPrint, currentUser, updateTask, deleteTask, users }) => {
+const AllTasksHistoryTab = ({ tasks, categories, triggerPrint, triggerDetailsPrint, currentUser, updateTask, deleteTask, users }) => {
   const [search, setSearch] = useState('');
   const [catFilter, setCatFilter] = useState('All');
-  const [selectedTask, setSelectedTask] = useState(null);
-  const [editTaskMode, setEditTaskMode] = useState(false);
-
+  
   const filtered = tasks.filter(t => 
     (catFilter === 'All' || t.category === catFilter || (catFilter === 'Direct Assignment' && t.taskType === 'direct')) && 
     (
@@ -848,13 +800,10 @@ const AllTasksHistoryTab = ({ tasks, categories, triggerPrint, currentUser, upda
                 <td className="px-4 py-3 flex items-center gap-2">
                   <button onClick={()=>triggerPrint(t)} title="Print Slip" className="text-blue-600 hover:bg-blue-50 p-2 rounded-lg transition-colors"><Printer size={18}/></button>
                   {(currentUser.role === 'admin' || currentUser.canSeeReports) && (
-                    <button onClick={()=>{ setSelectedTask(t); setEditTaskMode(false); }} title="Detailed Report" className="text-slate-600 hover:bg-slate-100 p-2 rounded-lg transition-colors"><FileText size={18}/></button>
+                    <button onClick={()=>{ triggerDetailsPrint(t); }} title="Detailed Report" className="text-slate-600 hover:bg-slate-100 p-2 rounded-lg transition-colors"><FileText size={18}/></button>
                   )}
                   {(currentUser.role === 'admin' || t.status === 'Pending') && (
-                    <>
-                      <button onClick={()=>{ setSelectedTask(t); setEditTaskMode(true); }} title="Edit Input" className="text-amber-600 hover:bg-amber-50 p-2 rounded-lg transition-colors"><Edit size={18}/></button>
-                      <button onClick={async ()=>{ if(await deleteTask(t.id)) setSelectedTask(null); }} title="Delete Input" className="text-red-500 hover:bg-red-50 p-2 rounded-lg transition-colors"><Trash2 size={18}/></button>
-                    </>
+                    <button onClick={()=>{ deleteTask(t.id); }} title="Delete Input" className="text-red-500 hover:bg-red-50 p-2 rounded-lg transition-colors"><Trash2 size={18}/></button>
                   )}
                 </td>
               </tr>
@@ -863,14 +812,13 @@ const AllTasksHistoryTab = ({ tasks, categories, triggerPrint, currentUser, upda
           </tbody>
         </table>
       </div>
-      {selectedTask && <TaskDetailsModal task={selectedTask} onClose={() => setSelectedTask(null)} updateTask={updateTask} deleteTask={deleteTask} users={users} triggerPrint={triggerPrint} currentUser={currentUser} defaultEdit={editTaskMode} />}
     </div>
   );
 };
 
 
 // --- SUPER ADMIN DASHBOARD ---
-const AdminDashboard = ({ tasks, updateTask, deleteTask, categories, users, updateUserDoc, setImpersonatedUser, triggerPrint, triggerMasterReport, addTask, backupMeta, updateBackupMeta }) => {
+const AdminDashboard = ({ tasks, updateTask, deleteTask, categories, designations, users, updateUserDoc, setImpersonatedUser, triggerPrint, triggerDetailsPrint, triggerMasterReport, addTask, addCategory, addDesignation, backupMeta, updateBackupMeta, triggerCitizenPrint }) => {
   const [activeTab, setActiveTab] = useState('overview');
   const [reportModalOpen, setReportModalOpen] = useState(false);
 
@@ -882,10 +830,12 @@ const AdminDashboard = ({ tasks, updateTask, deleteTask, categories, users, upda
     <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-2 bg-white p-1.5 rounded-xl shadow-sm border border-slate-200 w-fit print:hidden">
         <button onClick={() => setActiveTab('overview')} className={`px-5 py-2.5 rounded-lg text-sm font-bold transition-all ${activeTab === 'overview' ? 'bg-slate-800 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'}`}>Global Overview</button>
+        <button onClick={() => setActiveTab('input')} className={`px-5 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'input' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'}`}><Plus size={16}/> Register Input</button>
+        <button onClick={() => setActiveTab('citizens')} className={`px-5 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'citizens' ? 'bg-teal-600 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'}`}><Users size={16}/> Citizen Info</button>
         <button onClick={() => setActiveTab('direct')} className={`px-5 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'direct' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'}`}><Zap size={16}/> Direct Assignments</button>
-        <button onClick={() => setActiveTab('users')} className={`px-5 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'users' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'}`}><Eye size={16}/> View Officers / Contact</button>
+        <button onClick={() => setActiveTab('users')} className={`px-5 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'users' ? 'bg-purple-600 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'}`}><Eye size={16}/> Officers / God Mode</button>
         <button onClick={() => setActiveTab('settings')} className={`px-5 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'settings' ? 'bg-slate-800 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'}`}><Settings size={16}/> Permissions</button>
-        <button onClick={() => setActiveTab('database')} className={`px-5 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'database' ? 'bg-red-600 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'}`}><Database size={16}/> Database & Backup</button>
+        <button onClick={() => setActiveTab('database')} className={`px-5 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'database' ? 'bg-red-600 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'}`}><Database size={16}/> DB & Backup</button>
       </div>
 
       {activeTab === 'overview' && (
@@ -905,11 +855,13 @@ const AdminDashboard = ({ tasks, updateTask, deleteTask, categories, users, upda
             <StatCard title="Completed Inputs" value={comp} color="green" icon={<CheckCircle size={24}/>}/>
             <StatCard title="Pending Inputs" value={pend} color="red" icon={<Clock size={24}/>}/>
           </div>
-          <AdminGlobalView tasks={tasks.filter(t=>(t.taskType||'input')==='input')} updateTask={updateTask} deleteTask={deleteTask} users={users} triggerPrint={triggerPrint} />
+          <AdminGlobalView tasks={tasks.filter(t=>(t.taskType||'input')==='input')} updateTask={updateTask} deleteTask={deleteTask} users={users} triggerPrint={triggerPrint} triggerDetailsPrint={triggerDetailsPrint} categories={categories} />
         </div>
       )}
 
-      {activeTab === 'direct' && <AdminDirectAssignments users={users} tasks={tasks} addTask={addTask} triggerPrint={triggerPrint} updateTask={updateTask} deleteTask={deleteTask} />}
+      {activeTab === 'input' && <InputFormTab addTask={addTask} categories={categories} designations={designations} addCategory={addCategory} addDesignation={addDesignation} users={users} triggerPrint={triggerPrint} creator={users.find(u=>u.role==='admin')} />}
+      {activeTab === 'citizens' && <AdminCitizenDirectory tasks={tasks} triggerCitizenPrint={triggerCitizenPrint} />}
+      {activeTab === 'direct' && <AdminDirectAssignments users={users} tasks={tasks} addTask={addTask} triggerPrint={triggerPrint} triggerDetailsPrint={triggerDetailsPrint} updateTask={updateTask} deleteTask={deleteTask} />}
 
       {activeTab === 'users' && (
         <div className="bg-white p-8 rounded-3xl shadow-lg border border-slate-200 animate-in fade-in">
@@ -937,6 +889,137 @@ const AdminDashboard = ({ tasks, updateTask, deleteTask, categories, users, upda
     </div>
   );
 };
+
+// Admin Citizen Directory
+const AdminCitizenDirectory = ({ tasks, triggerCitizenPrint }) => {
+  const [search, setSearch] = useState('');
+  const [sortBy, setSortBy] = useState('visits'); // 'visits', 'name', 'recent'
+  
+  const citizensData = useMemo(() => {
+    const map = new Map();
+    tasks.forEach(t => {
+      if (t.taskType === 'direct') return;
+      const phone = t.personalDetails.mobileNumber;
+      if (!phone) return;
+      if (!map.has(phone)) {
+        map.set(phone, { ...t.personalDetails, visits: 1, lastVisit: t.createdAt });
+      } else {
+        const ex = map.get(phone);
+        ex.visits += 1;
+        if (new Date(t.createdAt) > new Date(ex.lastVisit)) ex.lastVisit = t.createdAt;
+      }
+    });
+    return Array.from(map.values()).sort((a,b) => {
+      if (sortBy === 'visits') return b.visits - a.visits;
+      if (sortBy === 'recent') return new Date(b.lastVisit) - new Date(a.lastVisit);
+      return a.name.localeCompare(b.name);
+    }).filter(c => c.name.toLowerCase().includes(search.toLowerCase()) || c.mobileNumber.includes(search) || (c.place||'').toLowerCase().includes(search.toLowerCase()));
+  }, [tasks, search, sortBy]);
+
+  const handleDownloadCSV = () => {
+    const headers = ['Name', 'Designation', 'Mobile Number', 'WhatsApp', 'House Name', 'Place', 'Panchayat', 'Ward', 'Total Visits', 'Last Visit'];
+    const rows = citizensData.map(c => [
+      c.name, c.designation||'-', c.mobileNumber, c.whatsappNumber||'-', c.houseName||'-', c.place||'-', c.panchayat||'-', c.wardNumber||'-', c.visits, formatDate(c.lastVisit)
+    ]);
+    const csvContent = [headers.join(','), ...rows.map(r => r.map(f=>`"${f}"`).join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `Citizen_Directory_${new Date().toISOString()}.csv`);
+    link.click();
+  };
+
+  return (
+    <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-8 animate-in fade-in">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+        <div>
+          <h2 className="text-2xl font-black text-slate-800 flex items-center gap-2"><Users className="text-teal-600"/> Citizen Visit Directory</h2>
+          <p className="text-slate-500 font-medium mt-1">Track frequency of citizen visits based on registered mobile numbers.</p>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={handleDownloadCSV} className="bg-teal-50 text-teal-700 hover:bg-teal-100 px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-colors border border-teal-200"><Download size={16}/> Download CSV</button>
+          <button onClick={() => triggerCitizenPrint(citizensData)} className="bg-slate-800 text-white hover:bg-black px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-colors"><Printer size={16}/> Print PDF</button>
+        </div>
+      </div>
+
+      <div className="flex gap-4 mb-6 bg-slate-50 p-4 rounded-xl border border-slate-200">
+        <div className="relative flex-1">
+          <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input type="text" placeholder="Search by Name, Mobile, Place..." value={search} onChange={e=>setSearch(e.target.value)} className="w-full pl-12 pr-4 py-2 bg-white border border-slate-200 rounded-lg font-medium outline-none focus:border-teal-500" />
+        </div>
+        <select value={sortBy} onChange={e=>setSortBy(e.target.value)} className="px-4 py-2 bg-white border border-slate-200 rounded-lg font-bold text-slate-700 outline-none focus:border-teal-500">
+          <option value="visits">Sort by Most Visits</option>
+          <option value="recent">Sort by Most Recent</option>
+          <option value="name">Sort Alphabetically</option>
+        </select>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="w-full text-left text-sm text-slate-700 whitespace-nowrap">
+          <thead className="bg-slate-100 border-y border-slate-200 text-slate-500 uppercase text-xs tracking-widest font-black">
+            <tr>
+              <th className="px-4 py-3">Citizen Name & Desig.</th>
+              <th className="px-4 py-3">Contact Info</th>
+              <th className="px-4 py-3">Location / Address</th>
+              <th className="px-4 py-3 text-center">Total Visits</th>
+              <th className="px-4 py-3">Last Visit Date</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {citizensData.map((c, i) => (
+              <tr key={i} className="hover:bg-slate-50">
+                <td className="px-4 py-3"><span className="font-bold text-slate-800 text-base">{c.name}</span>{c.designation && <span className="block text-xs text-teal-600 font-bold uppercase tracking-wider">{c.designation}</span>}</td>
+                <td className="px-4 py-3 font-medium text-slate-600"><span className="flex items-center gap-1.5"><Phone size={12}/> {c.mobileNumber}</span>{c.whatsappNumber && <span className="flex items-center gap-1.5 mt-1 text-green-600"><MessageSquare size={12}/> {c.whatsappNumber}</span>}</td>
+                <td className="px-4 py-3 text-xs font-medium text-slate-500"><span className="block text-slate-700 font-bold">{c.place || '-'}, {c.panchayat || '-'}</span>{c.houseName && <span>{c.houseName}</span>} {c.wardNumber && <span>(Ward: {c.wardNumber})</span>}</td>
+                <td className="px-4 py-3 text-center"><span className="bg-slate-800 text-white font-black px-3 py-1 rounded-full">{c.visits}</span></td>
+                <td className="px-4 py-3 text-xs font-bold text-slate-500">{formatDate(c.lastVisit)}</td>
+              </tr>
+            ))}
+            {citizensData.length === 0 && <tr><td colSpan="5" className="text-center py-8 text-slate-500 font-medium">No citizens match search criteria.</td></tr>}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+};
+
+// Print Citizen Directory
+const PrintCitizenDirectory = ({ citizens, onComplete }) => {
+  return (
+    <div className="hidden print:block fixed inset-0 bg-white z-[9999] text-black overflow-visible font-sans">
+      <button onClick={onComplete} className="print:hidden absolute top-0 left-0 bg-red-500 text-white z-[10000] p-2">Close Print View</button>
+      <div className="p-8 max-w-[210mm] mx-auto bg-white min-h-[297mm] flex flex-col">
+        <div className="text-center border-b-2 border-black pb-4 mb-6">
+          <h1 className="text-2xl font-bold uppercase tracking-widest mb-1 text-slate-800">PK Navas MLA Office</h1>
+          <h2 className="text-lg font-semibold text-slate-500 uppercase tracking-widest">Citizen Directory & Visit Log</h2>
+          <p className="mt-2 text-xs text-slate-400">Generated: {new Date().toLocaleString('en-IN')}</p>
+        </div>
+        <table className="w-full text-xs border-collapse border border-slate-300 mb-8 break-inside-avoid">
+          <thead>
+            <tr className="bg-slate-100 text-left uppercase tracking-wider text-slate-600">
+              <th className="border border-slate-300 p-2">Name & Designation</th>
+              <th className="border border-slate-300 p-2">Contact</th>
+              <th className="border border-slate-300 p-2">Location</th>
+              <th className="border border-slate-300 p-2 text-center">Visits</th>
+            </tr>
+          </thead>
+          <tbody>
+            {citizens.map((c,i) => (
+              <tr key={i}>
+                <td className="border border-slate-300 p-2"><strong className="text-sm block">{c.name}</strong>{c.designation && <span className="text-[10px] text-slate-500 uppercase">{c.designation}</span>}</td>
+                <td className="border border-slate-300 p-2"><strong className="block">{c.mobileNumber}</strong>{c.whatsappNumber && <span>WA: {c.whatsappNumber}</span>}</td>
+                <td className="border border-slate-300 p-2"><strong>{c.place || '-'}, {c.panchayat || '-'}</strong><br/><span className="text-[10px]">{c.houseName}</span></td>
+                <td className="border border-slate-300 p-2 text-center font-bold text-sm">{c.visits}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+};
+
 
 // Database & Backup Management (Manual JSON Export/Import & Reset)
 const AdminDatabase = ({ tasks, users, backupMeta, updateBackupMeta }) => {
@@ -1136,7 +1219,7 @@ const ReportConfigModal = ({ onClose, onGenerate }) => {
 
 
 // Admin Direct Assignment Panel
-const AdminDirectAssignments = ({ users, tasks, addTask, triggerPrint, updateTask, deleteTask }) => {
+const AdminDirectAssignments = ({ users, tasks, addTask, triggerPrint, triggerDetailsPrint, updateTask, deleteTask }) => {
   const [desc, setDesc] = useState('');
   const [assignedTo, setAssignedTo] = useState([]);
   
@@ -1170,7 +1253,7 @@ const AdminDirectAssignments = ({ users, tasks, addTask, triggerPrint, updateTas
           </div>
         </div>
       </form>
-      <AdminGlobalView tasks={tasks.filter(t=>t.taskType==='direct')} updateTask={updateTask} deleteTask={deleteTask} users={users} triggerPrint={triggerPrint} />
+      <AdminGlobalView tasks={tasks.filter(t=>t.taskType==='direct')} updateTask={updateTask} deleteTask={deleteTask} users={users} triggerPrint={triggerPrint} triggerDetailsPrint={triggerDetailsPrint} categories={[{id:'Direct Assignment'}]} />
     </div>
   );
 };
@@ -1186,35 +1269,44 @@ const StatCard = ({ title, value, color, icon }) => {
   );
 };
 
-const AdminGlobalView = ({ tasks, updateTask, deleteTask, users, triggerPrint }) => {
+const AdminGlobalView = ({ tasks, updateTask, deleteTask, users, triggerPrint, triggerDetailsPrint, categories }) => {
   const [search, setSearch] = useState('');
-  const [selectedTask, setSelectedTask] = useState(null);
+  const [catFilter, setCatFilter] = useState('All');
 
-  const filtered = tasks.filter(t => (
-    t.id.toLowerCase().includes(search.toLowerCase()) || 
-    (t.subject||'').toLowerCase().includes(search.toLowerCase()) || 
-    t.personalDetails.name.toLowerCase().includes(search.toLowerCase()) || 
-    t.category.toLowerCase().includes(search.toLowerCase()) ||
-    (t.personalDetails.mobileNumber||'').includes(search)
-  )).sort((a,b)=> new Date(b.createdAt) - new Date(a.createdAt));
+  const filtered = tasks.filter(t => 
+    (catFilter === 'All' || t.category === catFilter || (catFilter === 'Direct Assignment' && t.taskType === 'direct')) && 
+    (
+      t.id.toLowerCase().includes(search.toLowerCase()) || 
+      (t.subject||'').toLowerCase().includes(search.toLowerCase()) || 
+      t.personalDetails.name.toLowerCase().includes(search.toLowerCase()) || 
+      t.category.toLowerCase().includes(search.toLowerCase()) ||
+      (t.personalDetails.mobileNumber||'').includes(search)
+    )
+  ).sort((a,b)=> new Date(b.createdAt) - new Date(a.createdAt));
   
   const toggleUnsolved = (task) => updateTask(task.id, { status: task.status === 'Unsolved' ? 'Pending' : 'Unsolved' });
 
   return (
     <div className="space-y-6">
       <div className="flex gap-4 flex-wrap bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
-        <div className="relative flex-1 min-w-[200px]"><Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" /><input type="text" placeholder="Search entries by Subject, Name, ID, Mobile..." value={search} onChange={e=>setSearch(e.target.value)} className="w-full pl-12 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-medium outline-none" /></div>
+        <div className="relative flex-1 min-w-[200px]"><Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" /><input type="text" placeholder="Search entries by Subject, Name, ID, Mobile..." value={search} onChange={e=>setSearch(e.target.value)} className="w-full pl-12 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-medium outline-none focus:ring-2 focus:ring-blue-500" /></div>
+        {categories && (
+          <select value={catFilter} onChange={e=>setCatFilter(e.target.value)} className="px-4 py-2.5 border border-slate-300 rounded-xl font-medium outline-none bg-white focus:ring-2 focus:ring-blue-500 min-w-[150px]">
+            <option value="All">All Categories</option>
+            {categories.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+        )}
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {filtered.map(t => (
-          <div key={t.id} className={`bg-white rounded-2xl p-5 border shadow-sm flex flex-col transition-all relative overflow-hidden ${t.status === 'Unsolved' ? 'border-slate-300 bg-slate-50 opacity-75 grayscale' : 'border-slate-200'}`}>
+          <div key={t.id} className={`bg-white rounded-2xl p-5 border shadow-sm flex flex-col transition-all relative overflow-hidden ${t.status === 'Unsolved' ? 'border-slate-300 bg-slate-50 opacity-75 grayscale' : 'border-slate-200 hover:shadow-md hover:border-blue-300'}`}>
             {t.status === 'Unsolved' && <div className="absolute top-4 right-4 bg-slate-800 text-white text-[10px] font-black px-2 py-1 rounded shadow-sm uppercase z-10"><Lock size={10} className="inline mr-1"/>Unsolved</div>}
             <div className="flex justify-between items-start mb-3">
               <span className={`${t.taskType==='direct'?'bg-indigo-800':'bg-blue-50'} text-${t.taskType==='direct'?'white':'blue-800'} text-[10px] font-black px-2 py-1 rounded uppercase tracking-widest`}>{t.id}</span>
               <span className={`text-[10px] font-black px-2 py-1 rounded uppercase border ${t.status==='Completed'?'bg-green-50 text-green-700 border-green-200':t.status==='In Progress'?'bg-amber-50 text-amber-700 border-amber-200':t.status==='Unsolved'?'bg-slate-100 text-slate-500 border-slate-300':'bg-red-50 text-red-700 border-red-200'}`}>{t.status}</span>
             </div>
             <div className="mb-4 flex-1">
-              <h3 className="font-black text-slate-800 text-lg leading-tight mb-1 line-clamp-1">{t.subject || t.personalDetails.name}</h3>
+              <h3 className="font-black text-slate-800 text-lg leading-tight mb-1 line-clamp-1" title={t.subject || t.personalDetails.name}>{t.subject || t.personalDetails.name}</h3>
               <p className="text-xs font-bold text-indigo-600 mb-2">{t.personalDetails.name} {t.personalDetails.referralPerson && `(Ref: ${t.personalDetails.referralPerson})`}</p>
               
               <div className="flex gap-2 mb-3">
@@ -1225,13 +1317,94 @@ const AdminGlobalView = ({ tasks, updateTask, deleteTask, users, triggerPrint })
               {t.description && <p className="text-sm font-medium text-slate-500 line-clamp-2 leading-snug whitespace-pre-wrap">{t.description}</p>}
             </div>
             <div className="pt-4 border-t border-slate-100 mt-auto flex gap-2">
-              <button onClick={() => setSelectedTask(t)} className="flex-1 bg-slate-800 text-white font-bold py-2 rounded-xl text-sm hover:bg-black">Report</button>
-              <button onClick={() => toggleUnsolved(t)} className={`px-3 rounded-xl border flex items-center justify-center ${t.status==='Unsolved' ? 'bg-amber-100 text-amber-700 border-amber-200' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>{t.status==='Unsolved' ? <Activity size={16}/> : <UserX size={16}/>}</button>
+              <button onClick={() => triggerDetailsPrint(t)} className="flex-1 bg-slate-800 text-white font-bold py-2 rounded-xl text-sm hover:bg-black transition-colors">Details</button>
+              <button onClick={() => toggleUnsolved(t)} className={`px-3 rounded-xl border flex items-center justify-center transition-colors ${t.status==='Unsolved' ? 'bg-amber-100 text-amber-700 border-amber-200 hover:bg-amber-200' : 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200'}`} title={t.status==='Unsolved' ? "Reopen" : "Mark Unsolved"}>{t.status==='Unsolved' ? <Activity size={16}/> : <UserX size={16}/>}</button>
             </div>
           </div>
         ))}
+        {filtered.length === 0 && <div className="col-span-full py-10 text-center text-slate-500 font-bold bg-white rounded-2xl border border-slate-200">No records found.</div>}
       </div>
-      {selectedTask && <TaskDetailsModal task={selectedTask} onClose={() => setSelectedTask(null)} updateTask={updateTask} deleteTask={deleteTask} users={users} triggerPrint={triggerPrint} currentUser={{ role: 'admin' }} />}
+    </div>
+  );
+};
+
+const PrintTaskDetailsReport = ({ task, users, onComplete }) => {
+  return (
+    <div className="hidden print:flex fixed inset-0 bg-white z-[9999] text-slate-800 font-sans flex-col h-full w-full">
+       <button onClick={onComplete} className="print:hidden absolute top-0 left-0 bg-red-500 text-white z-[10000] p-2">Close Print</button>
+       <style>{`
+          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+          @media print {
+             @page { margin: 0; size: A4 portrait; }
+             body { -webkit-print-color-adjust: exact; font-family: 'Inter', sans-serif; }
+          }
+       `}</style>
+       <div className="p-10 flex flex-col min-h-screen">
+          <div className="border-b-2 border-slate-800 pb-4 mb-8 text-center">
+              <h1 className="text-2xl font-black uppercase tracking-widest text-slate-900">PK Navas MLA Office</h1>
+              <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-widest mt-1">Detailed Input Report</h2>
+          </div>
+          
+          <div className="flex justify-between items-center mb-8 bg-slate-50 p-4 rounded-lg border border-slate-200 break-inside-avoid">
+             <div><p className="text-[10px] text-slate-500 uppercase font-black tracking-widest">Reference ID</p><p className="text-xl font-black text-slate-900">{task.id}</p></div>
+             <div className="text-right"><p className="text-[10px] text-slate-500 uppercase font-black tracking-widest">Date Received</p><p className="text-lg font-bold text-slate-800">{formatDate(task.createdAt)}</p></div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-8 mb-8 break-inside-avoid">
+             <div>
+                <h3 className="text-sm font-black mb-3 uppercase tracking-widest text-slate-400 border-b border-slate-200 pb-1">Subject & Category</h3>
+                <p className="font-bold text-slate-800 text-lg mb-1">{task.subject || 'N/A'}</p>
+                <p className="font-bold text-slate-600"><span className="bg-slate-200 px-2 py-0.5 rounded text-xs mr-2">{task.types.join(', ')}</span> {task.category}</p>
+             </div>
+             <div>
+                <h3 className="text-sm font-black mb-3 uppercase tracking-widest text-slate-400 border-b border-slate-200 pb-1">Citizen Details</h3>
+                <p className="font-bold text-slate-800 text-base">{task.personalDetails.name}</p>
+                {task.personalDetails.designation && <p className="text-xs font-bold text-indigo-600 uppercase tracking-wider">{task.personalDetails.designation}</p>}
+                <p className="font-medium text-slate-600 mt-1">{task.personalDetails.mobileNumber}</p>
+                <p className="font-medium text-slate-500 text-sm mt-1">{task.personalDetails.houseName ? `${task.personalDetails.houseName}, ` : ''}{task.personalDetails.place || '-'}, {task.personalDetails.panchayat || '-'}</p>
+                {task.personalDetails.referralPerson && <p className="font-bold text-slate-700 mt-2 text-sm">Referred by: {task.personalDetails.referralPerson}</p>}
+             </div>
+          </div>
+
+          {task.description && (
+             <div className="mb-8 break-inside-avoid">
+                <h3 className="text-sm font-black mb-3 uppercase tracking-widest text-slate-400 border-b border-slate-200 pb-1">Description</h3>
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 font-medium text-slate-700 text-sm whitespace-pre-wrap leading-relaxed">
+                   {task.description}
+                </div>
+             </div>
+          )}
+
+          <div className="mb-8 break-inside-avoid">
+             <h3 className="text-sm font-black mb-3 uppercase tracking-widest text-slate-400 border-b border-slate-200 pb-1">Assignments & Status</h3>
+             <div className="flex justify-between items-center bg-white border border-slate-200 p-4 rounded-xl">
+                 <div><p className="text-[10px] text-slate-500 uppercase font-black tracking-widest">Assigned To</p><p className="font-bold text-slate-800 text-sm mt-1">{task.assignedTo.map(id => users.find(u=>u.id===id)?.name).join(', ')}</p></div>
+                 <div className="text-right"><p className="text-[10px] text-slate-500 uppercase font-black tracking-widest">Current Status</p><p className="font-black text-slate-900 text-lg uppercase mt-1">{task.status}</p></div>
+             </div>
+          </div>
+
+          <div className="mt-4">
+             <h3 className="text-sm font-black mb-4 uppercase tracking-widest text-slate-400 border-b border-slate-200 pb-1">Complete Action Timeline</h3>
+             <div className="space-y-4">
+               {task.timeline.map((ev) => (
+                 <div key={ev.id} className="flex gap-4 items-start border-l-2 border-slate-300 pl-4 py-1 break-inside-avoid">
+                   <div className="w-1/4 shrink-0">
+                      <p className="text-xs font-black text-slate-500 uppercase tracking-widest">{formatDate(ev.time)}</p>
+                      <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase">By: {ev.by}</p>
+                   </div>
+                   <div className="w-3/4 bg-slate-50 p-3 rounded-lg border border-slate-100">
+                      <p className="font-bold text-slate-800 text-sm">{ev.text}</p>
+                   </div>
+                 </div>
+               ))}
+               {task.timeline.length === 0 && <p className="text-slate-400 font-medium italic">No actions recorded.</p>}
+             </div>
+          </div>
+
+          <div className="mt-auto pt-10 text-center text-[10px] font-bold uppercase tracking-widest text-slate-300">
+            *** End of Document ***
+          </div>
+       </div>
     </div>
   );
 };
@@ -1336,161 +1509,6 @@ const AdminSettings = ({ users, updateUserDoc }) => {
             </div>
           </div>
         ))}
-      </div>
-    </div>
-  );
-};
-
-const PrintAcknowledgeSlip = ({ task }) => {
-  if (!task) return null;
-  return (
-    <div className="hidden print:block fixed inset-0 bg-white z-[9999] p-8 text-black">
-      <div className="border-[3px] border-black p-8 relative min-h-[90vh] flex flex-col">
-        <div className="text-center mb-8 border-b-2 border-black pb-6"><h1 className="text-4xl font-black uppercase tracking-widest mb-2">Office of the MLA</h1><h2 className="text-2xl font-bold text-gray-700">Tanur Constituency</h2><p className="mt-2 text-sm font-bold italic">PK Navas, Member of Legislative Assembly</p></div>
-        <div className="flex justify-between items-center mb-8 bg-gray-100 p-4 border border-gray-300"><div><p className="text-xs text-gray-500 uppercase font-black tracking-widest">Reference ID</p><p className="text-2xl font-black text-black">{task.id}</p></div><div className="text-right"><p className="text-xs text-gray-500 uppercase font-black tracking-widest">Date</p><p className="text-xl font-bold text-black">{formatDate(task.createdAt)}</p></div></div>
-        <div className="mb-8"><h3 className="text-lg font-black mb-3 border-b border-gray-300 pb-1 uppercase tracking-widest">Citizen Info</h3><div className="grid grid-cols-2 gap-4 text-base font-medium"><div><span className="font-bold">Name:</span> {task.personalDetails.name}</div><div><span className="font-bold">Phone:</span> {task.personalDetails.mobileNumber}</div><div><span className="font-bold">Referral:</span> {task.personalDetails.referralPerson || '-'}</div><div><span className="font-bold">Place:</span> {task.personalDetails.place || '-'}</div></div></div>
-        <div className="mb-8"><h3 className="text-lg font-black mb-3 border-b border-gray-300 pb-1 uppercase tracking-widest">Input Info</h3><div className="mb-2"><span className="font-bold">Category:</span> {task.types.join(', ')} - {task.category}</div><div className="mb-2"><span className="font-bold">Subject:</span> {task.subject || '-'}</div>{task.description && <div className="mt-4"><span className="font-bold block mb-1">Description:</span><p className="p-4 border border-gray-300 bg-gray-50 text-sm whitespace-pre-wrap">{task.description}</p></div>}</div>
-        <div className="mt-auto flex justify-between pt-16 page-break-inside-avoid"><div className="text-center"><div className="w-48 border-t-2 border-black pt-2 font-bold uppercase text-sm">Citizen Sign</div></div><div className="text-center"><div className="w-48 border-t-2 border-black pt-2 font-bold uppercase text-sm">Office Seal & Sign</div></div></div>
-      </div>
-    </div>
-  );
-};
-
-// --- PRINT MASTER REPORT ---
-const PrintMasterReport = ({ config, tasks, users, categories, onComplete }) => {
-  // 1. Filter tasks by date range
-  const filteredTasks = useMemo(() => {
-    let now = new Date();
-    let past = new Date();
-    if (config.range === '1week') past.setDate(now.getDate() - 7);
-    if (config.range === '1month') past.setMonth(now.getMonth() - 1);
-    if (config.range === '6months') past.setMonth(now.getMonth() - 6);
-    
-    return tasks.filter(t => {
-      const d = new Date(t.createdAt);
-      if (config.range === 'custom') {
-        const start = config.customStart ? new Date(config.customStart) : new Date(0);
-        const end = config.customEnd ? new Date(config.customEnd) : new Date();
-        end.setHours(23,59,59);
-        return d >= start && d <= end;
-      }
-      if (config.range !== 'all') return d >= past;
-      return true;
-    }).sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
-  }, [tasks, config]);
-
-  // 2. Global Stats
-  const total = filteredTasks.length;
-  const comp = filteredTasks.filter(t => t.status === 'Completed').length;
-  const inprog = filteredTasks.filter(t => t.status === 'In Progress').length;
-  const pend = filteredTasks.filter(t => t.status === 'Pending').length;
-  const unsolv = filteredTasks.filter(t => t.status === 'Unsolved').length;
-  const overdue = filteredTasks.filter(t => t.deadline && new Date(t.deadline) < new Date() && t.status !== 'Completed').length;
-
-  // 3. Category Stats
-  const catStats = categories.map(cat => ({
-    name: cat, count: filteredTasks.filter(t => t.category === cat).length
-  })).sort((a,b)=>b.count-a.count);
-
-  // 4. Staff Performance
-  const staffPerf = users.filter(u=>u.role!=='admin').map(u => {
-    const assigned = filteredTasks.filter(t => t.assignedTo.includes(u.id));
-    const uComp = assigned.filter(t => t.officerStatuses && t.officerStatuses[u.id] === 'Completed').length;
-    const rate = assigned.length ? ((uComp / assigned.length) * 100).toFixed(0) : 0;
-    return { name: u.name, total: assigned.length, completed: uComp, rate: Number(rate) };
-  }).sort((a,b)=>b.rate - a.rate);
-  
-  const topPerf = staffPerf.length && staffPerf[0].total > 0 ? staffPerf[0].name : 'N/A';
-
-  const rangeLabel = { all: 'All Time', '1week': 'Last 7 Days', '1month': 'Last 30 Days', '6months': 'Last 6 Months', custom: `Custom Range (${config.customStart} to ${config.customEnd})` };
-
-  return (
-    <div className="hidden print:block fixed inset-0 bg-white z-[9999] text-black overflow-visible font-serif">
-      <button onClick={onComplete} className="print:hidden absolute top-0 left-0 bg-red-500 text-white z-[10000] p-2">Close Report View</button>
-      
-      <div className="p-8 max-w-[210mm] mx-auto bg-white min-h-[297mm] flex flex-col">
-        {/* Header */}
-        <div className="text-center border-b-4 border-black pb-4 mb-6">
-          <h1 className="text-3xl font-black uppercase tracking-widest mb-1">MLA Office - Tanur Constituency</h1>
-          <h2 className="text-xl font-bold text-gray-700 uppercase tracking-widest">Master Performance Report</h2>
-          <p className="mt-2 text-sm"><strong>Period:</strong> {rangeLabel[config.range]} | <strong>Generated:</strong> {new Date().toLocaleString('en-IN')}</p>
-        </div>
-
-        {/* Global Summary */}
-        <h3 className="text-lg font-black bg-gray-200 p-2 uppercase mb-4 text-center">Global Overview</h3>
-        <div className="grid grid-cols-5 gap-2 mb-8 text-center">
-          <div className="border border-black p-3"><p className="text-3xl font-black">{total}</p><p className="text-[10px] font-bold uppercase mt-1">Total Inputs</p></div>
-          <div className="border border-black p-3"><p className="text-3xl font-black">{comp}</p><p className="text-[10px] font-bold uppercase mt-1">Completed</p></div>
-          <div className="border border-black p-3"><p className="text-3xl font-black">{inprog}</p><p className="text-[10px] font-bold uppercase mt-1">In Progress</p></div>
-          <div className="border border-black p-3"><p className="text-3xl font-black">{pend}</p><p className="text-[10px] font-bold uppercase mt-1">Pending</p></div>
-          <div className="border border-black p-3 bg-red-50"><p className="text-3xl font-black text-red-700">{overdue}</p><p className="text-[10px] font-bold uppercase mt-1">Overdue</p></div>
-        </div>
-
-        {/* Staff Performance */}
-        <h3 className="text-lg font-black bg-gray-200 p-2 uppercase mb-4 text-center">Staff Performance Analytics</h3>
-        <div className="mb-4">
-          <p className="font-bold text-sm">Top Performing Officer: <span className="bg-black text-white px-2 py-0.5 ml-1">{topPerf}</span></p>
-        </div>
-        <table className="w-full text-sm border-collapse border border-black mb-8">
-          <thead>
-            <tr className="bg-gray-100">
-              <th className="border border-black p-2 text-left">Officer Name</th>
-              <th className="border border-black p-2 text-center">Assigned</th>
-              <th className="border border-black p-2 text-center">Completed</th>
-              <th className="border border-black p-2 text-center">Completion Rate</th>
-            </tr>
-          </thead>
-          <tbody>
-            {staffPerf.map((s,i) => (
-              <tr key={i}>
-                <td className="border border-black p-2 font-bold">{s.name}</td>
-                <td className="border border-black p-2 text-center">{s.total}</td>
-                <td className="border border-black p-2 text-center">{s.completed}</td>
-                <td className="border border-black p-2 text-center font-bold">{s.rate}%</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        {/* Categories */}
-        <h3 className="text-lg font-black bg-gray-200 p-2 uppercase mb-4 text-center break-inside-avoid">Input Categories Breakdown</h3>
-        <div className="grid grid-cols-2 gap-4 mb-8 break-inside-avoid">
-          {catStats.filter(c=>c.count>0).map((c,i) => (
-            <div key={i} className="flex justify-between border-b border-gray-400 py-1 text-sm font-bold">
-              <span>{c.name}</span><span>{c.count}</span>
-            </div>
-          ))}
-        </div>
-
-        {/* Detailed Breakdown (Limited to recent/overdue for print sanity) */}
-        <h3 className="text-lg font-black bg-gray-200 p-2 uppercase mb-4 text-center break-inside-avoid">Recent & Overdue Details (Highlight)</h3>
-        <table className="w-full text-[11px] border-collapse border border-black break-inside-avoid">
-          <thead>
-            <tr className="bg-gray-100">
-              <th className="border border-black p-2 text-left">ID & Date</th>
-              <th className="border border-black p-2 text-left">Subject / Citizen</th>
-              <th className="border border-black p-2 text-left">Assigned</th>
-              <th className="border border-black p-2 text-center">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredTasks.slice(0, 20).map(t => (
-              <tr key={t.id}>
-                <td className="border border-black p-2 whitespace-nowrap"><strong className="block">{t.id}</strong>{formatDate(t.createdAt)}</td>
-                <td className="border border-black p-2"><strong className="block truncate max-w-[200px]">{t.subject || 'No Subject'}</strong>{t.personalDetails.name}</td>
-                <td className="border border-black p-2">{t.assignedTo.map(id => users.find(u=>u.id===id)?.name.split(' ')[0]).join(', ')}</td>
-                <td className="border border-black p-2 text-center font-bold">{t.status}</td>
-              </tr>
-            ))}
-            {filteredTasks.length > 20 && <tr><td colSpan="4" className="border border-black p-2 text-center italic text-gray-500">... and {filteredTasks.length - 20} more records omitted for print length.</td></tr>}
-            {filteredTasks.length === 0 && <tr><td colSpan="4" className="border border-black p-4 text-center italic text-gray-500">No records found in this date range.</td></tr>}
-          </tbody>
-        </table>
-
-        {/* Footer */}
-        <div className="mt-auto pt-12 text-center text-xs font-bold uppercase tracking-widest text-gray-400">
-          *** End of Report ***
-        </div>
       </div>
     </div>
   );

@@ -1167,7 +1167,7 @@ function InputFormTab({ tasks, addTask, categories, designations, addCategory, a
     
     if (sendWaMsg && (finalPersonalDetails.whatsappNumber || finalPersonalDetails.mobileNumber)) {
       const waNum = formatWhatsAppNumber(finalPersonalDetails.whatsappNumber || finalPersonalDetails.mobileNumber);
-      if (waNum) window.open(`https://wa.me/${waNum}?text=${encodeURIComponent(`പ്രിയപ്പെട്ട ${finalPersonalDetails.name},\n\nതാങ്കൾ പി.കെ നവാസ് എം.എൽ.എ യുടെ ഓഫീസുമായി ബന്ധപ്പെട്ടതിന് നന്ദി. നിങ്ങളുടെ അപേക്ഷ/പരാതി ഔദ്യോഗികമായി രേഖപ്പെടുത്തിയിട്ടുണ്ട്.\n\n*റഫറൻസ് ഐഡി:* ${taskId}\n\nകൂടുതൽ വിവരങ്ങൾക്ക് ഈ നമ്പറിൽ ബന്ധപ്പെടാവുന്നതാണ്.\n\nസ്നേഹത്തോടെ,\nഎം.എൽ.എ ഓഫീസ്, താനൂർ.`)}`, '_blank');
+      if (waNum) window.open(`https://wa.me/${waNum}?text=${encodeURIComponent(`പ്രിയപ്പെട്ട ${finalPersonalDetails.name},\n\nതാങ്കൾ പി.കെ നവാസ് എം.എൽ.എ യുടെ ഓഫീസുമായി ബന്ധപ്പെട്ടതിന് നന്ദി. നിങ്ങളുടെ അപേക്ഷ/പരാതി ഔദ്യോഗികമായി രേഖപ്പെടുത്തിയിട്ടുണ്ട്.\n\n വിഷയം: ${subject}\n\n*റഫറൻസ് ഐഡി:* ${taskId} \n\nസ്നേഹത്തോടെ,\nഎം.എൽ.എ ഓഫീസ്, താനൂർ.\n\nഫോൺ: 9037032002`)}`, '_blank');
     }
   };
 

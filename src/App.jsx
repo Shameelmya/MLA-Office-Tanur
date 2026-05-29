@@ -4,14 +4,13 @@ import {
   Clock, CheckCircle, AlertTriangle, FileText, Calendar, 
   MapPin, Phone, MessageSquare, Printer, Settings, Check, 
   Send, ArrowDownUp, X, Edit, Trash2, Eye, Shield, 
-  ChevronRight, Lock, Activity, UserX, CalendarPlus, Zap, FileOutput, Database, Download, Upload, AlertOctagon, Scissors, List, Bell, Paperclip, ExternalLink
+  ChevronRight, Lock, Activity, UserX, CalendarPlus, Zap, FileOutput, Database, Download, Upload, AlertOctagon, Scissors, List, Bell, Paperclip, ExternalLink, CheckSquare
 } from 'lucide-react';
 
 // --- FIREBASE INTEGRATION ---
 import { initializeApp } from "firebase/app";
 import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from "firebase/auth";
 import { getFirestore, collection, doc, setDoc, updateDoc, deleteDoc, onSnapshot, writeBatch, getDocs } from "firebase/firestore";
-// Storage dependencies removed to optimize for external R2/B2 attachments
 
 const fallbackConfig = {
   apiKey: "AIzaSyBG-E6BiZURXhJWYkEPz1VdhyWh7d_5Lqo",
@@ -66,6 +65,17 @@ const formatWhatsAppNumber = (phone) => {
   return cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
 };
 
+// Global Helper to Send WhatsApp Updates
+const sendWhatsAppUpdate = (task, updateText, updateLink) => {
+  const num = task.personalDetails?.whatsappNumber || task.personalDetails?.mobileNumber;
+  const waNum = formatWhatsAppNumber(num);
+  if (!waNum) { alert('No valid mobile number found for this citizen.'); return; }
+  let msg = `പ്രിയപ്പെട്ട ${task.personalDetails.name},\n\nRef: ${task.id}\nSubject : "${task.subject}" \nഎന്ന വിഷയവുമായി ബന്ധപ്പെട്ട നിങ്ങളുടെ അപേക്ഷയുമായി ബന്ധപ്പെട്ട എറ്റവും പുതിയ അപ്ഡേറ്റ് ഇതാണ് :\n${updateText}`;
+  if (updateLink) msg += `\n\nരേഖ: ${updateLink}`;
+  msg += `\n\nസ്നേഹത്തോടെ,\nഎം.എൽ.എ ഓഫീസ്, താനൂർ.\nഫോൺ: 9037032002`;
+  window.open(`https://wa.me/${waNum}?text=${encodeURIComponent(msg)}`, '_blank');
+};
+
 const DEFAULT_CATEGORIES = ['Invitation', 'Road Complaint', 'Help Request', 'Personal Complaint', 'Confidential Info'];
 const DEFAULT_DESIGNATIONS = ['Citizen', 'Panchayath President', 'Panchayath Secretary', 'Ward Member', 'Asha Worker', 'Political Leader', 'Others'];
 const INPUT_TYPES = ['Letter', 'Phone Call', 'Direct Visit', 'WhatsApp Message', 'Email', 'Others'];
@@ -87,7 +97,7 @@ const ISLAMIC_QUOTES = [
 ];
 
 // --- CORE FILTER HOOK (Memory & Cache Optimized) ---
-const useFilteredTasks = (allTasks, globalFilters, searchStr, catFilter) => {
+const useFilteredTasks = (allTasks, globalFilters, searchStr, catFilter, officerFilter = null) => {
   return useMemo(() => {
     let result = allTasks;
 
@@ -114,8 +124,13 @@ const useFilteredTasks = (allTasks, globalFilters, searchStr, catFilter) => {
       if (catFilter === 'Direct Assignment') result = result.filter(t => t.taskType === 'direct');
       else result = result.filter(t => t.category === catFilter);
     }
+    
+    // 4. Officer Filter
+    if (officerFilter && officerFilter !== 'All') {
+      result = result.filter(t => t.assignedTo.includes(officerFilter));
+    }
 
-    // 4. Search Filter
+    // 5. Search Filter
     if (searchStr) {
       const s = searchStr.toLowerCase();
       result = result.filter(t =>
@@ -127,7 +142,7 @@ const useFilteredTasks = (allTasks, globalFilters, searchStr, catFilter) => {
     }
 
     return result.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-  }, [allTasks, globalFilters, searchStr, catFilter]);
+  }, [allTasks, globalFilters, searchStr, catFilter, officerFilter]);
 };
 
 // --- COMPONENTS ---
@@ -244,7 +259,7 @@ function PDFCaptureWrapper({ id, children }) {
   );
 }
 
-// Print Sub-Components (Acknowledge, Details, Master, Officer, Citizen) remain untouched in logic structure.
+// Print Sub-Components
 function PrintAcknowledgeSlip({ task }) {
   return (
     <div className="w-full bg-white text-black font-sans">
@@ -477,6 +492,7 @@ function PrintCitizenDirectory({ citizens }) {
 function TaskDetailsModal({ task, onClose, updateTask, deleteTask, users, categories, triggerDetailsPrint, triggerDownloadPDF, currentUser, triggerConfirm }) {
   if (!task) return null;
   const [newUpdate, setNewUpdate] = useState('');
+  const [newUpdateLink, setNewUpdateLink] = useState('');
   const [isEditMode, setIsEditMode] = useState(false);
   const [editData, setEditData] = useState(task);
   const [editingTimelineId, setEditingTimelineId] = useState(null);
@@ -486,9 +502,9 @@ function TaskDetailsModal({ task, onClose, updateTask, deleteTask, users, catego
   
   const handleAddUpdate = () => {
     if(!newUpdate.trim()) return;
-    const ev = { id: generateUid(), type: 'update', time: getNow(), by: currentUser.name, text: newUpdate };
+    const ev = { id: generateUid(), type: 'update', time: getNow(), by: currentUser.name, text: newUpdate, link: newUpdateLink };
     updateTask(task.id, { timeline: [...task.timeline, ev] });
-    setNewUpdate('');
+    setNewUpdate(''); setNewUpdateLink('');
   };
 
   const handleSaveEdit = async () => {
@@ -500,7 +516,27 @@ function TaskDetailsModal({ task, onClose, updateTask, deleteTask, users, catego
       const newNames = editData.assignedTo.map(id => users.find(u => u.id === id)?.name || id).join(', ');
       updatedTimeline.push({ id: generateUid(), type: 'transfer', time: getNow(), by: currentUser.name, text: `Task reassigned to: ${newNames || 'Nobody'}` });
     }
-    await updateTask(task.id, { subject: editData.subject, description: editData.description, status: editData.status, priority: editData.priority, category: editData.category, assignedTo: editData.assignedTo, timeline: updatedTimeline });
+
+    let updatedOfficerStatuses = { ...task.officerStatuses };
+
+    // Admin override: If status changed to Completed globally, mark all assigned officers as Completed
+    if (editData.status === 'Completed' && task.status !== 'Completed') {
+        editData.assignedTo.forEach(id => updatedOfficerStatuses[id] = 'Completed');
+        updatedTimeline.push({ id: generateUid(), type: 'completed', time: getNow(), by: currentUser.name, text: 'Status changed to Completed via Edit.' });
+    } else if (editData.status !== task.status) {
+        updatedTimeline.push({ id: generateUid(), type: 'update', time: getNow(), by: currentUser.name, text: `Status changed to ${editData.status} via Edit.` });
+    }
+
+    await updateTask(task.id, { 
+       subject: editData.subject, 
+       description: editData.description, 
+       status: editData.status, 
+       priority: editData.priority, 
+       category: editData.category, 
+       assignedTo: editData.assignedTo, 
+       officerStatuses: updatedOfficerStatuses,
+       timeline: updatedTimeline 
+    });
     setIsEditMode(false);
   };
 
@@ -520,7 +556,7 @@ function TaskDetailsModal({ task, onClose, updateTask, deleteTask, users, catego
 
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex justify-end">
-      <div className="w-full max-w-2xl bg-white h-full overflow-y-auto animate-in slide-in-from-right flex flex-col shadow-2xl">
+      <div className="w-full max-w-2xl bg-white h-full overflow-y-auto animate-in slide-in-from-right flex flex-col shadow-2xl custom-scrollbar">
         <div className="bg-slate-900 p-6 text-white flex justify-between items-center sticky top-0 z-10">
           <div><h2 className="text-xl font-black flex items-center gap-2"><FileText size={20}/> Task Details</h2><p className="text-xs text-slate-400 font-medium tracking-widest uppercase mt-1">Ref: {task.id}</p></div>
           <div className="flex items-center gap-3">
@@ -637,13 +673,32 @@ function TaskDetailsModal({ task, onClose, updateTask, deleteTask, users, catego
                   <div key={item.id} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
                     <div className="flex items-center justify-center w-10 h-10 rounded-full border-4 border-white bg-slate-100 text-slate-500 shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 shadow-sm relative z-10"><TimelineIcon type={item.type} /></div>
                     <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-2xl border border-slate-200 bg-white shadow-sm transition-all hover:shadow-md relative">
-                      <div className="flex items-center justify-between space-x-2 mb-1"><div className="font-black text-slate-800 text-sm">{item.by}</div><div className="text-[10px] font-bold text-slate-400">{formatDate(item.time)} {formatTime(item.time)}</div></div>
+                      <div className="flex items-center justify-between space-x-2 mb-2">
+                         <div className="font-black text-slate-800 text-sm">{item.by}</div>
+                         <div className="flex items-center gap-2">
+                           <div className="text-[10px] font-bold text-slate-400">{formatDate(item.time)} {formatTime(item.time)}</div>
+                           {(item.type === 'update' || item.type === 'completed') && (
+                             <button onClick={() => sendWhatsAppUpdate(task, item.text, item.link)} title="Send Update to WhatsApp" className="text-green-600 hover:bg-green-100 bg-green-50 p-1.5 rounded-md transition-colors"><MessageSquare size={14}/></button>
+                           )}
+                         </div>
+                      </div>
+                      
                       {editingTimelineId === item.id ? (
-                        <div className="mt-2 flex flex-col gap-2">
+                        <div className="flex flex-col gap-2">
                            <textarea value={timelineEditText} onChange={e=>setTimelineEditText(e.target.value)} className="w-full border border-slate-300 rounded p-2 text-sm outline-none focus:border-indigo-500 h-20"/>
                            <div className="flex gap-2 justify-end"><button onClick={() => setEditingTimelineId(null)} className="px-3 py-1 bg-slate-200 text-slate-700 text-xs font-bold rounded">Cancel</button><button onClick={() => saveTimelineEdit(item)} className="px-3 py-1 bg-green-500 text-white text-xs font-bold rounded">Save</button></div>
                         </div>
-                      ) : (<div className="text-sm font-medium text-slate-600">{item.text}</div>)}
+                      ) : (
+                        <div className="text-sm font-medium text-slate-600">
+                          {item.text}
+                          {item.link && (
+                             <a href={item.link} target="_blank" rel="noreferrer" className="block mt-2 text-xs font-bold text-indigo-600 flex items-center gap-1 hover:underline">
+                               <ExternalLink size={12}/> View Attached Update Document
+                             </a>
+                          )}
+                        </div>
+                      )}
+
                       {isAdmin && !isEditMode && editingTimelineId !== item.id && (
                          <div className="mt-3 flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                             <button onClick={() => { setEditingTimelineId(item.id); setTimelineEditText(item.text); }} className="px-2 py-1 bg-blue-50 text-blue-600 text-[10px] font-bold rounded hover:bg-blue-100 flex items-center gap-1"><Edit size={10}/> Edit</button>
@@ -656,12 +711,15 @@ function TaskDetailsModal({ task, onClose, updateTask, deleteTask, users, catego
              </div>
           </div>
 
-          {(isAssigned || isAdmin) && task.status !== 'Completed' && task.status !== 'Unsolved' && !isEditMode && (
+          {((isAssigned && task.status !== 'Completed' && task.status !== 'Unsolved') || isAdmin) && !isEditMode && (
             <div className="bg-blue-50 border border-blue-200 p-4 rounded-xl mt-8">
-               <h4 className="font-bold text-blue-900 mb-2 flex items-center gap-2"><MessageSquare size={16}/> Add Progress Note</h4>
-               <div className="flex gap-2">
-                 <input type="text" value={newUpdate} onChange={e=>setNewUpdate(e.target.value)} placeholder="Type update here..." className="flex-1 px-4 py-2 rounded-lg border border-blue-300 outline-none focus:ring-2 focus:ring-blue-500" onKeyDown={e => e.key === 'Enter' && handleAddUpdate()} />
-                 <button onClick={handleAddUpdate} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-bold transition-colors">Post</button>
+               <h4 className="font-bold text-blue-900 mb-3 flex items-center gap-2"><MessageSquare size={16}/> Add Progress Note</h4>
+               <div className="flex flex-col gap-3">
+                 <input type="text" value={newUpdate} onChange={e=>setNewUpdate(e.target.value)} placeholder="Type progress update here..." className="w-full px-4 py-2.5 rounded-lg border border-blue-300 outline-none focus:ring-2 focus:ring-blue-500" />
+                 <div className="flex gap-2">
+                   <input type="url" value={newUpdateLink} onChange={e=>setNewUpdateLink(e.target.value)} placeholder="Attach Document Link (Optional)" className="flex-1 px-4 py-2 rounded-lg border border-blue-300 outline-none focus:ring-2 focus:ring-blue-500 text-sm" onKeyDown={e => e.key === 'Enter' && handleAddUpdate()} />
+                   <button onClick={handleAddUpdate} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-bold transition-colors shadow-sm">Post Update</button>
+                 </div>
                </div>
             </div>
           )}
@@ -1298,7 +1356,7 @@ function WorkerTab({ user, tasks, globalFilters, updateTask, isAdminOverride, ta
   const myAssignedAll = useMemo(() => tasks.filter(t => t.assignedTo.includes(user.id)), [tasks, user.id]);
   const compStat = useMemo(() => myAssignedAll.filter(t => t.officerStatuses && t.officerStatuses[user.id] === 'Completed').length, [myAssignedAll, user.id]);
   
-  const filtered = useFilteredTasks(myAssignedAll, globalFilters, search, null);
+  const filtered = useFilteredTasks(myAssignedAll, globalFilters, search, null, null);
   const typeFiltered = useMemo(() => filtered.filter(t => (t.taskType || 'input') === taskTypeFilter), [filtered, taskTypeFilter]);
 
   const todo = typeFiltered.filter(t => t.status !== 'Unsolved' && (!t.officerStatuses[user.id] || t.officerStatuses[user.id] === 'Pending'));
@@ -1348,6 +1406,7 @@ function Column({ title, count, color, children }) {
 const WorkerTaskCard = React.memo(({ task, user, updateTask, isUnsolved, isAdminOverride, triggerViewDetails, triggerConfirm }) => {
   const [showProgressModal, setShowProgressModal] = useState(false);
   const [updateText, setUpdateText] = useState('');
+  const [updateLink, setUpdateLink] = useState('');
   
   const status = task.officerStatuses[user.id] || 'Pending';
 
@@ -1364,10 +1423,10 @@ const WorkerTaskCard = React.memo(({ task, user, updateTask, isUnsolved, isAdmin
 
   const handleSaveUpdate = () => {
     if(!updateText.trim()) return;
-    const ev = { id: generateUid(), type: 'update', time: getNow(), by: user.name, text: updateText };
+    const ev = { id: generateUid(), type: 'update', time: getNow(), by: user.name, text: updateText, link: updateLink };
     if (status !== 'In Progress') changeStatus('In Progress', ev);
     else updateTask(task.id, { timeline: [...task.timeline, ev] });
-    setUpdateText(''); setShowProgressModal(false);
+    setUpdateText(''); setUpdateLink(''); setShowProgressModal(false);
   };
 
   const deleteUpdate = (uid) => { triggerConfirm("Delete Timeline Note", "Are you sure you want to delete this specific progress entry from the history?", () => { updateTask(task.id, { timeline: task.timeline.filter(tl => tl.id !== uid) }); }, true, "Delete Update"); };
@@ -1439,21 +1498,34 @@ const WorkerTaskCard = React.memo(({ task, user, updateTask, isUnsolved, isAdmin
       </div>
 
       {myUpdates.length > 0 && (
-        <div className="mt-4 pt-3 border-t border-slate-100 space-y-2">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">My Progress</p>
+        <div className="mt-4 pt-3 border-t border-slate-100 space-y-3">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">My Progress Updates</p>
           {myUpdates.slice(0, 2).map(up => (
-            <div key={up.id} className="bg-amber-50 p-2 rounded-lg border border-amber-100 text-xs font-medium text-slate-700 relative group pr-6 line-clamp-2">
-              <span className="font-bold text-amber-800 mr-1">{formatDate(up.time)}:</span> {up.text}
-              <button onClick={()=>deleteUpdate(up.id)} className="absolute right-1 top-1/2 -translate-y-1/2 text-red-400 opacity-0 group-hover:opacity-100 hover:text-red-600 p-1"><Trash2 size={12}/></button>
+            <div key={up.id} className="bg-amber-50 p-3 rounded-lg border border-amber-100 relative group">
+              <div className="text-xs font-medium text-slate-700 pr-12">
+                 <span className="font-bold text-amber-800 mr-1 block">{formatDate(up.time)}</span> 
+                 {up.text}
+                 {up.link && (
+                    <a href={up.link} target="_blank" rel="noreferrer" className="flex items-center gap-1 mt-2 text-[10px] font-bold text-indigo-600 hover:underline"><ExternalLink size={10}/> View Link</a>
+                 )}
+              </div>
+              <div className="absolute right-2 top-2 flex flex-col gap-1">
+                 <button onClick={()=>sendWhatsAppUpdate(task, up.text, up.link)} title="Send Update to WhatsApp" className="text-green-600 bg-green-100/50 hover:bg-green-200 p-1.5 rounded transition-colors"><MessageSquare size={12}/></button>
+                 <button onClick={()=>deleteUpdate(up.id)} title="Delete Update" className="text-red-400 bg-red-50 hover:bg-red-100 hover:text-red-600 p-1.5 rounded opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={12}/></button>
+              </div>
             </div>
           ))}
         </div>
       )}
       {showProgressModal && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-150">
             <div className="bg-blue-600 p-4 text-white flex justify-between items-center"><h3 className="font-black text-lg">Enter Progress Update</h3><button onClick={() => setShowProgressModal(false)}><X size={20}/></button></div>
-            <div className="p-6"><textarea autoFocus value={updateText} onChange={e=>setUpdateText(e.target.value)} placeholder="What step did you take?..." className="w-full px-4 py-3 border border-slate-300 rounded-xl font-medium outline-none focus:border-blue-500 h-32"></textarea><button onClick={handleSaveUpdate} className="w-full mt-4 bg-blue-600 text-white font-black py-3 rounded-xl hover:bg-blue-700 transition-colors">Save Update</button></div>
+            <div className="p-6">
+               <textarea autoFocus value={updateText} onChange={e=>setUpdateText(e.target.value)} placeholder="What action did you take?..." className="w-full px-4 py-3 border border-slate-300 rounded-xl font-medium outline-none focus:border-blue-500 h-32 mb-3"></textarea>
+               <input type="url" value={updateLink} onChange={e=>setUpdateLink(e.target.value)} placeholder="Attach Document Link (Optional)" className="w-full px-4 py-3 border border-slate-300 rounded-xl font-medium outline-none focus:border-blue-500 mb-4" />
+               <button onClick={handleSaveUpdate} className="w-full bg-blue-600 text-white font-black py-3 rounded-xl hover:bg-blue-700 transition-colors shadow">Save Update</button>
+            </div>
           </div>
         </div>
       )}
@@ -1468,7 +1540,7 @@ function AllTasksHistoryTab({ tasks, globalFilters, categories, triggerPrint, tr
   
   const sortedCategories = useMemo(() => { return [...categories].sort((a,b)=>a.localeCompare(b)); }, [categories]);
 
-  const filtered = useFilteredTasks(tasks, globalFilters, search, catFilter);
+  const filtered = useFilteredTasks(tasks, globalFilters, search, catFilter, null);
   const displayed = useMemo(() => filtered.slice(0, visibleCount), [filtered, visibleCount]);
   
   const handleSendWA = (t) => {
@@ -1533,7 +1605,7 @@ function AdminDashboard({ tasks, updateTask, deleteTask, categories, designation
 
   const jumpToTask = (tab, taskId) => { setGlobalSearch(taskId); setActiveTab(tab === 'tasks' ? 'overview' : tab); };
 
-  const analyticsTasks = useFilteredTasks(tasks, globalFilters, '', null);
+  const analyticsTasks = useFilteredTasks(tasks, globalFilters, '', null, null);
   const total = useMemo(() => analyticsTasks.filter(t=>t.taskType!=='direct').length, [analyticsTasks]);
   const comp = useMemo(() => analyticsTasks.filter(t=>t.taskType!=='direct' && t.status==='Completed').length, [analyticsTasks]);
   const pend = useMemo(() => analyticsTasks.filter(t=>t.taskType!=='direct' && t.status==='Pending').length, [analyticsTasks]);
@@ -1880,14 +1952,26 @@ const StatCard = React.memo(({ title, value, color, icon }) => {
 function AdminGlobalView({ tasks, globalFilters, updateTask, deleteTask, users, triggerPrint, triggerDetailsPrint, triggerViewDetails, triggerDownloadPDF, triggerDetailsDownload, categories, initialSearch, triggerConfirm }) {
   const [search, setSearch] = useState('');
   const [catFilter, setCatFilter] = useState('All');
+  const [officerFilter, setOfficerFilter] = useState('All');
   const [visibleCount, setVisibleCount] = useState(50); // Pagination Limit DOM render count
 
   useEffect(() => { if(initialSearch) setSearch(initialSearch); }, [initialSearch]);
 
-  const filtered = useFilteredTasks(tasks, globalFilters, search, catFilter);
+  const filtered = useFilteredTasks(tasks, globalFilters, search, catFilter, officerFilter);
   const displayed = useMemo(() => filtered.slice(0, visibleCount), [filtered, visibleCount]);
 
   const toggleUnsolved = useCallback((task) => updateTask(task.id, { status: task.status === 'Unsolved' ? 'Pending' : 'Unsolved' }), [updateTask]);
+  
+  const quickCompleteTask = useCallback((task) => {
+    const newOffStat = { ...task.officerStatuses };
+    task.assignedTo.forEach(id => newOffStat[id] = 'Completed');
+    updateTask(task.id, {
+        status: 'Completed',
+        officerStatuses: newOffStat,
+        timeline: [...task.timeline, { id: generateUid(), type: 'completed', time: getNow(), by: 'PK Navas (Admin)', text: 'Task marked as fully completed directly by Admin.' }]
+    });
+  }, [updateTask]);
+
   const togglePriority = useCallback((task) => {
     const p = ['Low', 'Medium', 'High'];
     updateTask(task.id, { priority: p[(p.indexOf(task.priority || 'Medium') + 1) % 3] });
@@ -1900,9 +1984,13 @@ function AdminGlobalView({ tasks, globalFilters, updateTask, deleteTask, users, 
       <div className="flex gap-4 flex-wrap bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
         <div className="relative flex-1 min-w-[200px]"><Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" /><input type="text" placeholder="Search entries by Subject, Name, ID, Mobile..." value={search} onChange={e=>setSearch(e.target.value)} className="w-full pl-12 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-medium outline-none focus:ring-2 focus:ring-blue-500" /></div>
         {categories && (<select value={catFilter} onChange={e=>setCatFilter(e.target.value)} className="px-4 py-2.5 border border-slate-300 rounded-xl font-medium outline-none bg-white focus:ring-2 focus:ring-blue-500 min-w-[150px] font-bold text-slate-700"><option value="All">All Categories</option>{sortedCategories.map(c => <option key={c} value={c}>{c}</option>)}</select>)}
+        <select value={officerFilter} onChange={e=>setOfficerFilter(e.target.value)} className="px-4 py-2.5 border border-slate-300 rounded-xl font-medium outline-none bg-white focus:ring-2 focus:ring-blue-500 min-w-[150px] font-bold text-slate-700">
+          <option value="All">All Assigned Officers</option>
+          {users.filter(u=>u.role !== 'admin').map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+        </select>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {displayed.map(t => <AdminTaskCard key={t.id} t={t} users={users} toggleUnsolved={toggleUnsolved} togglePriority={togglePriority} triggerViewDetails={triggerViewDetails} deleteTask={deleteTask} /> )}
+        {displayed.map(t => <AdminTaskCard key={t.id} t={t} users={users} toggleUnsolved={toggleUnsolved} quickCompleteTask={quickCompleteTask} togglePriority={togglePriority} triggerViewDetails={triggerViewDetails} deleteTask={deleteTask} triggerConfirm={triggerConfirm} /> )}
         {displayed.length === 0 && <div className="col-span-full py-10 text-center text-slate-500 font-bold bg-white rounded-2xl border border-slate-200">No records found.</div>}
       </div>
       {visibleCount < filtered.length && (
@@ -1914,8 +2002,8 @@ function AdminGlobalView({ tasks, globalFilters, updateTask, deleteTask, users, 
   );
 }
 
-// Extracted for performance (React.memo avoids re-rendering every card on unrelated state updates)
-const AdminTaskCard = React.memo(({ t, users, toggleUnsolved, togglePriority, triggerViewDetails, deleteTask }) => {
+// Extracted for performance
+const AdminTaskCard = React.memo(({ t, users, toggleUnsolved, quickCompleteTask, togglePriority, triggerViewDetails, deleteTask, triggerConfirm }) => {
   const getPriorityColor = (p) => { if (p === 'High') return 'bg-red-100 text-red-700 border border-red-200 hover:bg-red-200'; if (p === 'Low') return 'bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200'; return 'bg-amber-100 text-amber-700 border border-amber-200 hover:bg-amber-200'; };
   const getStatusColor = (s) => { if (s === 'Completed') return 'text-green-600'; if (s === 'In Progress') return 'text-amber-600'; if (s === 'Unsolved') return 'text-slate-500'; return 'text-red-600'; };
 
@@ -1925,13 +2013,20 @@ const AdminTaskCard = React.memo(({ t, users, toggleUnsolved, togglePriority, tr
       
       <div className="flex justify-between items-start mb-2">
         <span className={`text-[10px] font-black px-2 py-1 rounded uppercase tracking-widest ${t.taskType === 'direct' ? 'bg-indigo-100 text-indigo-800' : 'bg-blue-50 text-blue-800'}`}>{t.id}</span>
-        <div className="text-right">
-          <span className="text-[10px] font-bold text-slate-400 block leading-tight">{formatDate(t.createdAt)}</span>
-          <span className="text-[9px] font-semibold text-slate-400 block leading-tight">{formatTime(t.createdAt)}</span>
+        <div className="text-right flex items-center gap-3">
+          {t.status !== 'Completed' && t.status !== 'Unsolved' && (
+             <button onClick={(e) => { e.stopPropagation(); triggerConfirm("Quick Complete Task", `Mark task ${t.id} as fully completed for all officers?`, () => quickCompleteTask(t)); }} title="Quick Mark as Completed" className="bg-green-50 text-green-600 border border-green-200 hover:bg-green-100 hover:shadow-sm p-1.5 rounded-full transition-all">
+               <CheckSquare size={14} />
+             </button>
+          )}
+          <div>
+            <span className="text-[10px] font-bold text-slate-400 block leading-tight">{formatDate(t.createdAt)}</span>
+            <span className="text-[9px] font-semibold text-slate-400 block leading-tight">{formatTime(t.createdAt)}</span>
+          </div>
         </div>
       </div>
 
-      <div className="mb-2 border-b border-slate-100 pb-2">
+      <div className="mb-2 border-b border-slate-100 pb-2 mt-1">
         <h3 className="font-black text-slate-800 text-base leading-tight mb-1">{t.personalDetails.name}</h3>
         {t.personalDetails.designation && <p className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider">{t.personalDetails.designation}</p>}
         <div className="flex gap-2 mt-2">

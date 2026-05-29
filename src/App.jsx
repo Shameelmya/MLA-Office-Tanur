@@ -519,12 +519,17 @@ function TaskDetailsModal({ task, onClose, updateTask, deleteTask, users, catego
 
     let updatedOfficerStatuses = { ...task.officerStatuses };
 
-    // Admin override: If status changed to Completed globally, mark all assigned officers as Completed
-    if (editData.status === 'Completed' && task.status !== 'Completed') {
-        editData.assignedTo.forEach(id => updatedOfficerStatuses[id] = 'Completed');
-        updatedTimeline.push({ id: generateUid(), type: 'completed', time: getNow(), by: currentUser.name, text: 'Status changed to Completed via Edit.' });
-    } else if (editData.status !== task.status) {
-        updatedTimeline.push({ id: generateUid(), type: 'update', time: getNow(), by: currentUser.name, text: `Status changed to ${editData.status} via Edit.` });
+    // Admin override: Sync officer statuses if global status changes
+    if (editData.status !== task.status) {
+        // If admin changes the global status, cascade it to all assigned officers
+        // so it moves to the correct column in their dashboard.
+        editData.assignedTo.forEach(id => updatedOfficerStatuses[id] = editData.status);
+        
+        let actionType = 'update';
+        if (editData.status === 'Completed') actionType = 'completed';
+        else if (task.status === 'Completed' || task.status === 'Unsolved') actionType = 'reverted';
+        
+        updatedTimeline.push({ id: generateUid(), type: actionType, time: getNow(), by: currentUser.name, text: `Global status changed to ${editData.status}.` });
     }
 
     await updateTask(task.id, { 

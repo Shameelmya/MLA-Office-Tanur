@@ -1167,7 +1167,10 @@ function InputFormTab({ tasks, addTask, categories, designations, addCategory, a
     
     if (sendWaMsg && (finalPersonalDetails.whatsappNumber || finalPersonalDetails.mobileNumber)) {
       const waNum = formatWhatsAppNumber(finalPersonalDetails.whatsappNumber || finalPersonalDetails.mobileNumber);
-      if (waNum) window.open(`https://wa.me/${waNum}?text=${encodeURIComponent(`പ്രിയപ്പെട്ട ${finalPersonalDetails.name},\n\nതാങ്കൾ പി.കെ നവാസ് എം.എൽ.എ യുടെ ഓഫീസുമായി ബന്ധപ്പെട്ടതിന് നന്ദി. നിങ്ങളുടെ അപേക്ഷ/പരാതി ഔദ്യോഗികമായി രേഖപ്പെടുത്തിയിട്ടുണ്ട്.\n\n വിഷയം: ${subject}\n\n*റഫറൻസ് ഐഡി:* ${taskId} \n\nസ്നേഹത്തോടെ,\nഎം.എൽ.എ ഓഫീസ്, താനൂർ.\n\nഫോൺ: 9037032002`)}`, '_blank');
+      if (waNum) {
+        const waMessage = `പ്രിയപ്പെട്ട ${finalPersonalDetails.name},\n\nതാങ്കൾ പി.കെ നവാസ് എം.എൽ.എ യുടെ ഓഫീസുമായി ബന്ധപ്പെട്ടതിന് നന്ദി. നിങ്ങളുടെ അപേക്ഷ/പരാതി ഔദ്യോഗികമായി രേഖപ്പെടുത്തിയിട്ടുണ്ട്.\n\n*വിഷയം:* ${form.subject}\n*റഫറൻസ് ഐഡി:* ${taskId}\n\n\nസ്നേഹത്തോടെ,\nഎം.എൽ.എ ഓഫീസ്, താനൂർ.ഫോൺ: 9037032002`;
+        window.open(`https://wa.me/${waNum}?text=${encodeURIComponent(waMessage)}`, '_blank');
+      }
     }
   };
 
@@ -1468,6 +1471,14 @@ function AllTasksHistoryTab({ tasks, globalFilters, categories, triggerPrint, tr
   const filtered = useFilteredTasks(tasks, globalFilters, search, catFilter);
   const displayed = useMemo(() => filtered.slice(0, visibleCount), [filtered, visibleCount]);
   
+  const handleSendWA = (t) => {
+    const num = t.personalDetails?.whatsappNumber || t.personalDetails?.mobileNumber;
+    const waNum = formatWhatsAppNumber(num);
+    if (!waNum) { alert('No valid mobile number found for this citizen.'); return; }
+    const waMessage = `പ്രിയപ്പെട്ട ${t.personalDetails.name},\n\nതാങ്കൾ പി.കെ നവാസ് എം.എൽ.എ യുടെ ഓഫീസുമായി ബന്ധപ്പെട്ടതിന് നന്ദി. നിങ്ങളുടെ അപേക്ഷ/പരാതി ഔദ്യോഗികമായി രേഖപ്പെടുത്തിയിട്ടുണ്ട്.\n\n*വിഷയം:* ${t.subject}\n*റഫറൻസ് ഐഡി:* ${t.id}\n\n\nസ്നേഹത്തോടെ,\nഎം.എൽ.എ ഓഫീസ്, താനൂർ.ഫോൺ: 9037032002`;
+    window.open(`https://wa.me/${waNum}?text=${encodeURIComponent(waMessage)}`, '_blank');
+  };
+
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-6">
       <div className="flex gap-4 flex-wrap">
@@ -1490,6 +1501,7 @@ function AllTasksHistoryTab({ tasks, globalFilters, categories, triggerPrint, tr
                 <td className="px-4 py-3"><span className={`px-2 py-1 rounded text-xs font-black uppercase ${t.status==='Completed'?'bg-green-100 text-green-700':t.status==='In Progress'?'bg-amber-100 text-amber-700':t.status==='Unsolved'?'bg-slate-200 text-slate-500':'bg-red-100 text-red-700'}`}>{t.status}</span></td>
                 <td className="px-4 py-3 flex items-center gap-2">
                   <button onClick={()=>{ triggerViewDetails(t); }} title="Detailed Report" className="text-slate-600 hover:bg-slate-200 p-2 rounded-lg transition-colors bg-slate-100"><Eye size={16}/></button>
+                  <button onClick={() => handleSendWA(t)} title="Send WhatsApp Acknowledgement" className="text-green-600 hover:bg-green-100 p-2 rounded-lg transition-colors bg-green-50"><Send size={16}/></button>
                   <button onClick={()=>triggerPrint(t)} title="Print Slip" className="text-blue-600 hover:bg-blue-100 p-2 rounded-lg transition-colors bg-blue-50"><Printer size={16}/></button>
                   <button onClick={()=>{ triggerDownloadPDF(t); }} title="Download Slip PDF" className="text-indigo-600 hover:bg-indigo-100 p-2 rounded-lg transition-colors bg-indigo-50"><Download size={16}/></button>
                   {(currentUser.role === 'admin' || t.status === 'Pending') && (

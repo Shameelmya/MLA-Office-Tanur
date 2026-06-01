@@ -4,7 +4,7 @@ import {
   Clock, CheckCircle, AlertTriangle, FileText, Calendar, 
   MapPin, Phone, MessageSquare, Printer, Settings, Check, 
   Send, ArrowDownUp, X, Edit, Trash2, Eye, Shield, 
-  ChevronRight, Lock, Activity, UserX, CalendarPlus, Zap, FileOutput, Database, Download, Upload, AlertOctagon, Scissors, List, Bell, Paperclip, ExternalLink, CheckSquare
+  ChevronRight, Lock, Activity, UserX, CalendarPlus, Zap, FileOutput, Database, Download, Upload, AlertOctagon, Scissors, List, Bell, Paperclip, ExternalLink, CheckSquare, PenTool, FileSignature
 } from 'lucide-react';
 
 // --- FIREBASE INTEGRATION ---
@@ -67,6 +67,7 @@ const formatWhatsAppNumber = (phone) => {
 
 // Global Helper to Send WhatsApp Updates
 const sendWhatsAppUpdate = (task, updateText, updateLink) => {
+  if (task.isSelfMode) return; // Do not send WA for self mode
   const num = task.personalDetails?.whatsappNumber || task.personalDetails?.mobileNumber;
   const waNum = formatWhatsAppNumber(num);
   if (!waNum) { alert('No valid mobile number found for this citizen.'); return; }
@@ -76,10 +77,16 @@ const sendWhatsAppUpdate = (task, updateText, updateLink) => {
   window.open(`https://wa.me/${waNum}?text=${encodeURIComponent(msg)}`, '_blank');
 };
 
-const DEFAULT_CATEGORIES = ['Invitation', 'Road Complaint', 'Help Request', 'Personal Complaint', 'Confidential Info'];
+const DEFAULT_CATEGORIES = ['CMDRF', 'NORKA Santhwana', 'tgrantz', 'Invitation', 'Road Complaint', 'Help Request', 'Personal Complaint', 'Confidential Info'];
 const DEFAULT_DESIGNATIONS = ['Citizen', 'Panchayath President', 'Panchayath Secretary', 'Ward Member', 'Asha Worker', 'Political Leader', 'Others'];
 const INPUT_TYPES = ['Letter', 'Phone Call', 'Direct Visit', 'WhatsApp Message', 'Email', 'Others'];
 const LOCAL_BODIES = ['Tanur Municipality', 'Tanalur Panchayath', 'Ozhur Panchayath', 'Cheriyamundam Panchayath', 'Ponmundam Panchayath', 'Niramaruthur Panchayath', 'Other'];
+
+const EXT_LINKS = {
+    'CMDRF': 'https://donation.cmdrf.kerala.gov.in/',
+    'NORKA Santhwana': 'https://sso.norkaroots.kerala.gov.in/login?ref=main&client_id=99dd0c83-dad4-4cb7-90e4-19e9f1ffe7e5',
+    'tgrantz': 'https://tgrantz.kerala.gov.in/'
+};
 
 const DEFAULT_USERS = [
   { id: 'admin', name: 'PK Navas (MLA)', role: 'admin', pass: 'Navas@2026', enabled: true, canInput: true, canSeeReports: true, phone: '', whatsapp: '' },
@@ -119,18 +126,25 @@ const useFilteredTasks = (allTasks, globalFilters, searchStr, catFilter, officer
       result = result.filter(t => new Date(t.createdAt) >= cutoff);
     }
 
-    // 3. Category Filter
+    // 3. Application Mode Filter
+    if (globalFilters.applicationMode === 'Self') {
+      result = result.filter(t => t.isSelfMode);
+    } else if (globalFilters.applicationMode === 'Citizen') {
+      result = result.filter(t => !t.isSelfMode && t.taskType !== 'direct');
+    }
+
+    // 4. Category Filter
     if (catFilter && catFilter !== 'All') {
       if (catFilter === 'Direct Assignment') result = result.filter(t => t.taskType === 'direct');
       else result = result.filter(t => t.category === catFilter);
     }
     
-    // 4. Officer Filter
+    // 5. Officer Filter
     if (officerFilter && officerFilter !== 'All') {
       result = result.filter(t => t.assignedTo.includes(officerFilter));
     }
 
-    // 5. Search Filter
+    // 6. Search Filter
     if (searchStr) {
       const s = searchStr.toLowerCase();
       result = result.filter(t =>
@@ -249,7 +263,7 @@ function PDFCaptureWrapper({ id, children }) {
           <h2 className="text-white text-xl font-bold tracking-widest uppercase">Generating Document</h2>
           <p className="text-slate-300 text-sm font-medium">Exporting with precise page margins...</p>
         </div>
-        <div className="shadow-2xl rounded-sm overflow-hidden bg-white mx-auto flex justify-center">
+        <div className="shadow-2xl rounded-sm overflow-hidden bg-white mx-auto flex justify-center relative">
           <div id={id} className="bg-white text-black text-left" style={{ width: '700px', padding: '40px 50px', boxSizing: 'border-box', margin: '0 auto' }}>
             <div className="font-sans">{children}</div>
           </div>
@@ -262,30 +276,104 @@ function PDFCaptureWrapper({ id, children }) {
 // Print Sub-Components
 function PrintAcknowledgeSlip({ task }) {
   return (
-    <div className="w-full bg-white text-black font-sans">
-      <div className="text-center border-b-2 border-black pb-4 mb-6">
+    <div className="w-full bg-white text-black font-sans relative p-10" style={{ backgroundImage: "url('/letterpad.jpg')", backgroundSize: '100% 100%', backgroundRepeat: 'no-repeat', minHeight: '1122px', boxSizing: 'border-box' }}>
+      {/* If your letterpad has a built-in header, you can optionally hide or remove this block */}
+      <div className="text-center border-b-2 border-black pb-4 mb-6 relative z-10">
         <h1 className="text-2xl font-bold uppercase tracking-widest mb-1 text-black">PK Navas MLA Office</h1>
         <h2 className="text-lg font-semibold text-gray-700 uppercase tracking-widest">Acknowledgement Slip</h2>
       </div>
-      <div className="mb-6 flex justify-between items-start">
+      
+      <div className="mb-6 flex justify-between items-start relative z-10">
         <div className="w-1/2 pr-4"><p className="text-sm font-bold text-gray-500 uppercase mb-1">Reference ID</p><p className="text-2xl font-bold text-black tracking-widest">{task.id}</p></div>
         <div className="w-1/2 pl-4 text-right"><p className="text-sm font-bold text-gray-500 uppercase mb-1">Date & Time</p><p className="text-base font-bold text-black">{formatDate(task.createdAt)}</p><p className="text-sm text-gray-700">{formatTime(task.createdAt)}</p></div>
       </div>
-      <div className="mb-6">
-        <h3 className="text-sm font-bold text-black uppercase border-b border-gray-400 pb-1 mb-2">Citizen Details</h3>
+      <div className="mb-6 relative z-10">
+        <h3 className="text-sm font-bold text-black uppercase border-b border-gray-400 pb-1 mb-2">{task.isSelfMode ? "Application Details" : "Citizen Details"}</h3>
         <div className="grid grid-cols-2 gap-2 text-sm">
           <div><span className="font-bold text-gray-700">Name:</span> {task.personalDetails.name}</div>
-          <div><span className="font-bold text-gray-700">Mobile:</span> {task.personalDetails.mobileNumber}</div>
+          {!task.isSelfMode && <div><span className="font-bold text-gray-700">Mobile:</span> {task.personalDetails.mobileNumber}</div>}
           {task.personalDetails.place && <div className="col-span-2 mt-1"><span className="font-bold text-gray-700">Address:</span> {[task.personalDetails.houseName, task.personalDetails.place, task.personalDetails.localBody].filter(Boolean).join(', ')}</div>}
         </div>
       </div>
-      <div className="mb-6">
+      <div className="mb-6 relative z-10">
         <h3 className="text-sm font-bold text-black uppercase border-b border-gray-400 pb-1 mb-2">Input Details</h3>
         <div className="grid grid-cols-2 gap-2 text-sm mb-3"><div><span className="font-bold text-gray-700">Category:</span> {task.category}</div><div><span className="font-bold text-gray-700">Type:</span> {task.types.join(', ')}</div></div>
         <div className="mb-4"><span className="font-bold text-gray-700 block mb-1">Subject:</span><p className="font-bold text-black text-base">{task.subject}</p></div>
-        {task.description && (<div className="mt-3"><span className="font-bold text-gray-700 block mb-1">Detailed Description:</span><div className="text-sm text-gray-800 whitespace-pre-wrap bg-slate-50 p-3 rounded-lg border border-slate-200 leading-relaxed font-medium">{task.description}</div></div>)}
+        {task.description && (<div className="mt-3"><span className="font-bold text-gray-700 block mb-1">Detailed Description:</span><div className="text-sm text-gray-800 whitespace-pre-wrap bg-slate-50/80 backdrop-blur-sm p-3 rounded-lg border border-slate-200 leading-relaxed font-medium">{task.description}</div></div>)}
       </div>
-      <div className="text-center text-sm text-gray-600 mt-10 pt-4 border-t border-gray-300"><p>Please keep this reference ID for future tracking.</p><p className="font-bold mt-1 text-black">Thank you for contacting the MLA Office.</p></div>
+      <div className="text-center text-sm text-gray-600 mt-10 pt-4 border-t border-gray-300 relative z-10"><p>Please keep this reference ID for future tracking.</p><p className="font-bold mt-1 text-black">Thank you for contacting the MLA Office.</p></div>
+    </div>
+  );
+}
+
+function PrintCompletionLetter({ task }) {
+  const isVerified = task.isSignedByMLA;
+  
+  return (
+    <div className="w-full bg-white text-black font-sans relative flex flex-col overflow-hidden z-0 p-10" style={{ backgroundImage: "url('/letterpad.jpg')", backgroundSize: '100% 100%', backgroundRepeat: 'no-repeat', minHeight: '1122px', boxSizing: 'border-box' }}>
+      
+      {!isVerified && (
+        <div className="absolute inset-0 z-[-1] flex items-center justify-center pointer-events-none opacity-20">
+           <div className="transform -rotate-45 text-red-500 font-black tracking-widest border-8 border-red-500 p-8 rounded-3xl" style={{ fontSize: '100px' }}>
+              NOT VERIFIED
+           </div>
+        </div>
+      )}
+
+      <div className="relative z-10 flex-1 flex flex-col">
+        {/* If your letterpad has a built-in header, you can optionally hide or remove this block */}
+        <div className="text-center border-b-2 border-black pb-4 mb-8">
+          <h1 className="text-3xl font-black uppercase tracking-widest mb-1 text-black">PK Navas MLA Office</h1>
+          <h2 className="text-sm font-bold text-gray-600 uppercase tracking-widest">Tanur Constituency</h2>
+        </div>
+        
+        <div className="flex justify-between items-start mb-8 text-sm font-medium">
+          <div>
+            <p className="font-bold text-black mb-1">To,</p>
+            <p className="text-black">{task.personalDetails.name}</p>
+            {task.personalDetails.houseName && <p>{task.personalDetails.houseName}</p>}
+            <p>{[task.personalDetails.place, task.personalDetails.localBody].filter(Boolean).join(', ')}</p>
+            {!task.isSelfMode && <p>Phone: {task.personalDetails.mobileNumber}</p>}
+          </div>
+          <div className="text-right">
+            <p><span className="font-bold text-gray-600">Date:</span> {new Date().toLocaleDateString('en-IN')}</p>
+            <p><span className="font-bold text-gray-600">Ref ID:</span> <span className="font-black">{task.id}</span></p>
+          </div>
+        </div>
+
+        <div className="mb-8">
+           <p className="text-sm"><span className="font-bold text-black mr-2">Sub:</span> {task.subject}</p>
+        </div>
+
+        <div className="mb-12 text-base leading-relaxed text-black font-medium" style={{ fontFamily: "'Anek Malayalam', sans-serif" }}>
+           മാന്യരെ, <br/><br/>
+           {formatDate(task.createdAt)} തിയ്യതിയിൽ മേൽ വിഷയവുമായി ബന്ധപ്പെട്ട് നിങ്ങൾ നൽകിയ അപേക്ഷ/പരാതി വിജയകരമായി പരിഹരിച്ച വിവരം സന്തോഷപൂർവം പങ്കുവെക്കുന്നു. <br/><br/>
+           കൂടുതൽ വിവരങ്ങൾക്കോ സഹായങ്ങൾക്കോ എപ്പോൾ വേണമെങ്കിലും ഞങ്ങളെ ബന്ധപ്പെടാവുന്നതാണ്.
+        </div>
+
+        <div className="mt-auto">
+          <p className="font-medium text-black mb-2" style={{ fontFamily: "'Anek Malayalam', sans-serif" }}>സ്നേഹത്തോടെ,</p>
+          
+          {isVerified ? (
+             <div className="my-4">
+                <img src="/sign.png" alt="MLA Signature" className="h-16 mb-2" onError={(e) => { e.target.style.display='none'; e.target.nextSibling.style.display='block'; }} />
+                {/* Fallback cursive text if image fails to load */}
+                <div className="hidden font-[cursive] text-3xl text-blue-900 mb-2 italic" style={{ fontFamily: "'Brush Script MT', cursive" }}>P.K Navas</div>
+             </div>
+          ) : (
+             <div className="my-4 h-16 flex items-end">
+                <span className="text-gray-400 italic text-sm">(Draft Copy - Signature Pending)</span>
+             </div>
+          )}
+
+          <div className="mt-4">
+            <p className="font-bold text-black uppercase text-sm">P.K Navas</p>
+            <p className="text-xs text-gray-600 mb-1">Member of Legislative Assembly (MLA)</p>
+            <p className="text-xs text-gray-600">MLA Office, Tanur</p>
+            <p className="text-xs text-gray-600">Phone: 9037032002</p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -297,10 +385,10 @@ function PrintTaskDetailsReport({ task, users }) {
       <div className="flex justify-between items-center mb-6 pb-4 border-b border-gray-300"><div className="w-1/2"><p className="text-xs font-bold text-gray-500 uppercase">Task ID</p><p className="text-xl font-bold text-black">{task.id}</p></div><div className="w-1/2 text-right"><p className="text-xs font-bold text-gray-500 uppercase">Current Status</p><p className="text-lg font-bold uppercase text-black">{task.status}</p></div></div>
       <div className="grid grid-cols-2 gap-6 mb-6">
         <div>
-          <h3 className="text-sm font-bold uppercase text-black border-b border-gray-400 pb-1 mb-2">Citizen Info</h3>
+          <h3 className="text-sm font-bold uppercase text-black border-b border-gray-400 pb-1 mb-2">{task.isSelfMode ? 'Application Info' : 'Citizen Info'}</h3>
           <p className="mb-1 text-sm"><strong>Name:</strong> {task.personalDetails.name} {task.personalDetails.gender && `(${task.personalDetails.gender})`}</p>
-          <p className="mb-1 text-sm"><strong>Mobile:</strong> {task.personalDetails.mobileNumber}</p>
-          {task.personalDetails.whatsappNumber && <p className="mb-1 text-sm"><strong>WhatsApp:</strong> {task.personalDetails.whatsappNumber}</p>}
+          {!task.isSelfMode && <p className="mb-1 text-sm"><strong>Mobile:</strong> {task.personalDetails.mobileNumber}</p>}
+          {task.personalDetails.whatsappNumber && !task.isSelfMode && <p className="mb-1 text-sm"><strong>WhatsApp:</strong> {task.personalDetails.whatsappNumber}</p>}
           <p className="mb-1 text-sm"><strong>Address:</strong> {[task.personalDetails.houseName, task.personalDetails.place, task.personalDetails.postOffice, task.personalDetails.localBody].filter(Boolean).join(', ')}</p>
         </div>
         <div>
@@ -519,12 +607,8 @@ function TaskDetailsModal({ task, onClose, updateTask, deleteTask, users, catego
 
     let updatedOfficerStatuses = { ...task.officerStatuses };
 
-    // Admin override: Sync officer statuses if global status changes
     if (editData.status !== task.status) {
-        // If admin changes the global status, cascade it to all assigned officers
-        // so it moves to the correct column in their dashboard.
         editData.assignedTo.forEach(id => updatedOfficerStatuses[id] = editData.status);
-        
         let actionType = 'update';
         if (editData.status === 'Completed') actionType = 'completed';
         else if (task.status === 'Completed' || task.status === 'Unsolved') actionType = 'reverted';
@@ -559,11 +643,13 @@ function TaskDetailsModal({ task, onClose, updateTask, deleteTask, users, catego
   const isAdmin = currentUser.role === 'admin';
   const sortedCategories = useMemo(() => { return [...categories].sort((a,b)=> a.localeCompare(b)); }, [categories]);
 
+  const cardBg = task.isSelfMode ? 'bg-yellow-50/70 border-yellow-200' : 'bg-slate-50 border-slate-200';
+
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex justify-end">
       <div className="w-full max-w-2xl bg-white h-full overflow-y-auto animate-in slide-in-from-right flex flex-col shadow-2xl custom-scrollbar">
         <div className="bg-slate-900 p-6 text-white flex justify-between items-center sticky top-0 z-10">
-          <div><h2 className="text-xl font-black flex items-center gap-2"><FileText size={20}/> Task Details</h2><p className="text-xs text-slate-400 font-medium tracking-widest uppercase mt-1">Ref: {task.id}</p></div>
+          <div><h2 className="text-xl font-black flex items-center gap-2"><FileText size={20}/> Task Details {task.isSelfMode && <span className="ml-2 bg-yellow-400 text-yellow-900 text-[10px] px-2 py-0.5 rounded-full uppercase tracking-widest font-black">Self Mode</span>}</h2><p className="text-xs text-slate-400 font-medium tracking-widest uppercase mt-1">Ref: {task.id}</p></div>
           <div className="flex items-center gap-3">
              {isAdmin && (
                isEditMode ? (
@@ -580,6 +666,24 @@ function TaskDetailsModal({ task, onClose, updateTask, deleteTask, users, catego
         </div>
 
         <div className="p-6 space-y-8 flex-1">
+          {task.status === 'Completed' && (
+             <div className="bg-green-50 border border-green-200 p-4 rounded-xl flex flex-wrap justify-between items-center gap-4">
+                <div>
+                   <h4 className="font-bold text-green-900 flex items-center gap-2"><CheckCircle size={18}/> Task is Completed</h4>
+                   <p className="text-xs text-green-700 font-medium mt-1">This issue has been successfully resolved.</p>
+                </div>
+                <div className="flex gap-2">
+                   {isAdmin && !task.isSignedByMLA && (
+                      <button onClick={() => updateTask(task.id, { isSignedByMLA: true })} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-lg shadow-sm flex items-center gap-2"><PenTool size={16}/> Sign Completion Letter</button>
+                   )}
+                   {/* Accessible by Officers & Admins. Wording changes if signed */}
+                   <button onClick={() => triggerDetailsPrint({ ...task, isCompletionLetter: true })} className={`px-4 py-2 text-white text-sm font-bold rounded-lg shadow-sm flex items-center gap-2 ${task.isSignedByMLA ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-slate-500 hover:bg-slate-600'}`}>
+                      <FileSignature size={16}/> {task.isSignedByMLA ? 'Print / PDF Completion Letter' : 'Print Draft (Unverified)'}
+                   </button>
+                </div>
+             </div>
+          )}
+
           <div className="flex flex-wrap gap-4 justify-between items-start bg-slate-50 p-4 rounded-xl border border-slate-200">
              <div>
                 <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Current Status</p>
@@ -597,14 +701,14 @@ function TaskDetailsModal({ task, onClose, updateTask, deleteTask, users, catego
           </div>
 
           <div className="grid sm:grid-cols-2 gap-8">
-            <div>
-               <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest border-b border-slate-200 pb-2 mb-4 flex items-center gap-2"><User size={16} className="text-blue-600"/> Citizen Profile</h3>
+            <div className={`p-4 rounded-xl border ${cardBg}`}>
+               <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest border-b border-slate-200 pb-2 mb-4 flex items-center gap-2"><User size={16} className="text-blue-600"/> {task.isSelfMode ? 'Application Info' : 'Citizen Profile'}</h3>
                <div className="space-y-3 text-sm">
                  <p><span className="font-bold text-slate-500">Name:</span> <span className="font-bold text-slate-800">{task.personalDetails.name}</span> {task.personalDetails.gender && `(${task.personalDetails.gender})`}</p>
                  {task.personalDetails.designation && <p><span className="font-bold text-slate-500">Desig:</span> {task.personalDetails.designation}</p>}
                  {task.personalDetails.referralPerson && <p><span className="font-bold text-slate-500">Ref:</span> {task.personalDetails.referralPerson}</p>}
-                 <p className="flex items-center gap-2"><span className="font-bold text-slate-500">Mobile:</span> <a href={`tel:${task.personalDetails.mobileNumber}`} className="font-bold text-blue-600 hover:underline">{task.personalDetails.mobileNumber}</a></p>
-                 {task.personalDetails.whatsappNumber && <p className="flex items-center gap-2"><span className="font-bold text-slate-500">WA:</span> <a href={`https://wa.me/${formatWhatsAppNumber(task.personalDetails.whatsappNumber)}`} target="_blank" rel="noreferrer" className="font-bold text-green-600 hover:underline">{task.personalDetails.whatsappNumber}</a></p>}
+                 {!task.isSelfMode && <p className="flex items-center gap-2"><span className="font-bold text-slate-500">Mobile:</span> <a href={`tel:${task.personalDetails.mobileNumber}`} className="font-bold text-blue-600 hover:underline">{task.personalDetails.mobileNumber}</a></p>}
+                 {task.personalDetails.whatsappNumber && !task.isSelfMode && <p className="flex items-center gap-2"><span className="font-bold text-slate-500">WA:</span> <a href={`https://wa.me/${formatWhatsAppNumber(task.personalDetails.whatsappNumber)}`} target="_blank" rel="noreferrer" className="font-bold text-green-600 hover:underline">{task.personalDetails.whatsappNumber}</a></p>}
                  <p className="pt-2"><span className="font-bold text-slate-500 block mb-1">Address:</span> <span className="font-medium text-slate-700">{[task.personalDetails.houseName, task.personalDetails.place, task.personalDetails.postOffice, task.personalDetails.pinCode, task.personalDetails.localBody, task.personalDetails.wardNumber ? `Ward ${task.personalDetails.wardNumber}` : ''].filter(Boolean).join(', ')}</span></p>
                </div>
             </div>
@@ -682,7 +786,7 @@ function TaskDetailsModal({ task, onClose, updateTask, deleteTask, users, catego
                          <div className="font-black text-slate-800 text-sm">{item.by}</div>
                          <div className="flex items-center gap-2">
                            <div className="text-[10px] font-bold text-slate-400">{formatDate(item.time)} {formatTime(item.time)}</div>
-                           {(item.type === 'update' || item.type === 'completed') && (
+                           {(item.type === 'update' || item.type === 'completed') && !task.isSelfMode && (
                              <button onClick={() => sendWhatsAppUpdate(task, item.text, item.link)} title="Send Update to WhatsApp" className="text-green-600 hover:bg-green-100 bg-green-50 p-1.5 rounded-md transition-colors"><MessageSquare size={14}/></button>
                            )}
                          </div>
@@ -752,12 +856,12 @@ export default function App() {
   const [designations, setDesignations] = useState(DEFAULT_DESIGNATIONS);
   const [backupMeta, setBackupMeta] = useState({ lastBackup: null, lastBackupType: null, lastImport: null });
   
-  const [globalFilters, setGlobalFilters] = useState({ dateRange: '7days', status: 'Active' });
+  const [globalFilters, setGlobalFilters] = useState({ dateRange: '7days', status: 'Active', applicationMode: 'All' });
 
-  // Custom Confirmation Dialog State
-  const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', onConfirm: null, confirmText: 'Confirm', cancelText: 'Cancel', isDanger: false });
-  const triggerConfirm = useCallback((title, message, onConfirm, isDanger = false, confirmText = 'Confirm') => {
-    setConfirmModal({ isOpen: true, title, message, onConfirm: () => { onConfirm(); setConfirmModal(prev => ({ ...prev, isOpen: false })); }, confirmText, cancelText: 'Cancel', isDanger });
+  // Custom Confirmation Dialog State with Optional Input
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', onConfirm: null, confirmText: 'Confirm', cancelText: 'Cancel', isDanger: false, showInput: false, inputPlaceholder: '', inputValue: '' });
+  const triggerConfirm = useCallback((title, message, onConfirm, isDanger = false, confirmText = 'Confirm', showInput = false, inputPlaceholder = '') => {
+    setConfirmModal({ isOpen: true, title, message, onConfirm: (val) => { onConfirm(val); setConfirmModal(prev => ({ ...prev, isOpen: false })); }, confirmText, cancelText: 'Cancel', isDanger, showInput, inputPlaceholder, inputValue: '' });
   }, []);
 
   // View states
@@ -825,7 +929,13 @@ export default function App() {
   }, [fbUser]);
 
   // Consolidate Active and Archive to pass down safely (useMemo avoids infinite renders)
-  const allTasks = useMemo(() => [...activeTasks, ...archivedTasks], [activeTasks, archivedTasks]);
+  const allTasks = useMemo(() => {
+    const taskMap = new Map();
+    // Archive first, so active explicitly overrides them if duplicates exist
+    archivedTasks.forEach(t => taskMap.set(t.id, t));
+    activeTasks.forEach(t => taskMap.set(t.id, t));
+    return Array.from(taskMap.values());
+  }, [activeTasks, archivedTasks]);
 
   // Print Handlers
   useEffect(() => { if (taskToPrint) { const timer = setTimeout(() => window.print(), 300); return () => clearTimeout(timer); } }, [taskToPrint]);
@@ -836,8 +946,11 @@ export default function App() {
     const downloadState = taskToDownload || taskDetailsToDownload || masterReportConfigToDownload || citizenDirectoryToDownload || officerReportToDownload;
     if (!downloadState) return;
 
-    const targetId = taskToDownload ? 'dl-ack-slip' : taskDetailsToDownload ? 'dl-details-report' : masterReportConfigToDownload ? 'dl-master-report' : officerReportToDownload ? 'dl-officer-report' : citizenDirectoryToDownload ? 'dl-citizen-dir' : null;
-    const filename = taskToDownload ? `Acknowledge_${taskToDownload.id}` : taskDetailsToDownload ? `Detailed_Report_${taskDetailsToDownload.id}` : masterReportConfigToDownload ? `Master_Performance_Report` : officerReportToDownload ? `Officer_Report_${officerReportToDownload.officer.name}` : citizenDirectoryToDownload ? `Citizen_Directory` : 'Document';
+    // Reuse details to download for completion letter logic if flagged
+    const isCompletionLetter = taskDetailsToDownload && taskDetailsToDownload.isCompletionLetter;
+    
+    const targetId = taskToDownload ? 'dl-ack-slip' : isCompletionLetter ? 'dl-completion-letter' : taskDetailsToDownload ? 'dl-details-report' : masterReportConfigToDownload ? 'dl-master-report' : officerReportToDownload ? 'dl-officer-report' : citizenDirectoryToDownload ? 'dl-citizen-dir' : null;
+    const filename = taskToDownload ? `Acknowledge_${taskToDownload.id}` : isCompletionLetter ? `Completion_Letter_${taskDetailsToDownload.id}` : taskDetailsToDownload ? `Detailed_Report_${taskDetailsToDownload.id}` : masterReportConfigToDownload ? `Master_Performance_Report` : officerReportToDownload ? `Officer_Report_${officerReportToDownload.officer.name}` : citizenDirectoryToDownload ? `Citizen_Directory` : 'Document';
 
     const generatePDF = () => {
       const el = document.getElementById(targetId);
@@ -946,6 +1059,11 @@ export default function App() {
          <option value="1year">Last Year</option>
          <option value="all">All Time</option>
        </select>
+       <select value={globalFilters.applicationMode} onChange={e => setGlobalFilters(p => ({...p, applicationMode: e.target.value}))} className="px-3 py-1.5 border border-slate-300 rounded-lg font-bold text-slate-700 outline-none bg-yellow-50 focus:border-yellow-500 transition-all">
+         <option value="All">All Application Modes</option>
+         <option value="Citizen">Citizen Registrations Only</option>
+         <option value="Self">Self Mode Only (No Citizen)</option>
+       </select>
        {isFetchingArchive && <span className="text-xs font-bold text-indigo-500 animate-pulse ml-2 flex items-center gap-1"><Database size={14}/> Fetching Archive...</span>}
     </div>
   );
@@ -968,11 +1086,19 @@ export default function App() {
 
       {taskToPrint && <div className="hidden print:block w-full bg-white text-black font-sans"><PrintAcknowledgeSlip task={taskToPrint} /></div>}
       {taskToDownload && <PDFCaptureWrapper id="dl-ack-slip"><PrintAcknowledgeSlip task={taskToDownload} /></PDFCaptureWrapper>}
-      {taskDetailsToDownload && <PDFCaptureWrapper id="dl-details-report"><PrintTaskDetailsReport task={taskDetailsToDownload} users={users} /></PDFCaptureWrapper>}
+      
+      {/* Conditional rendering for Detailed Report vs Completion Letter based on flag */}
+      {taskDetailsToDownload && taskDetailsToDownload.isCompletionLetter ? (
+        <PDFCaptureWrapper id="dl-completion-letter"><PrintCompletionLetter task={taskDetailsToDownload} /></PDFCaptureWrapper>
+      ) : (
+        taskDetailsToDownload && <PDFCaptureWrapper id="dl-details-report"><PrintTaskDetailsReport task={taskDetailsToDownload} users={users} /></PDFCaptureWrapper>
+      )}
+      
       {masterReportConfigToDownload && <PDFCaptureWrapper id="dl-master-report"><PrintMasterReport config={masterReportConfigToDownload} tasks={allTasks} users={users} categories={categories} /></PDFCaptureWrapper>}
       {officerReportToDownload && <PDFCaptureWrapper id="dl-officer-report"><PrintOfficerReport config={officerReportToDownload} tasks={allTasks} /></PDFCaptureWrapper>}
       {citizenDirectoryToDownload && <PDFCaptureWrapper id="dl-citizen-dir"><PrintCitizenDirectory citizens={citizenDirectoryToDownload} /></PDFCaptureWrapper>}
 
+      {/* When viewing details via print context, we map the trigger to set a flagged task state */}
       {viewingTask && !taskToPrint && <TaskDetailsModal task={allTasks.find(t => t.id === viewingTask.id) || viewingTask} onClose={() => setViewingTask(null)} updateTask={updateTask} deleteTask={deleteTask} users={users} categories={categories} triggerDetailsPrint={(task) => setTaskDetailsToDownload(task)} triggerDownloadPDF={setTaskDetailsToDownload} currentUser={activeUser} triggerConfirm={triggerConfirm} />}
 
       {confirmModal.isOpen && (
@@ -981,9 +1107,14 @@ export default function App() {
             <div className="p-6">
               <div className="flex items-center gap-3 mb-4"><div className={`p-3 rounded-full shrink-0 ${confirmModal.isDanger ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>{confirmModal.isDanger ? <AlertTriangle size={24} /> : <CheckCircle size={24} />}</div><h3 className="text-xl font-black text-slate-800 leading-tight">{confirmModal.title}</h3></div>
               <p className="text-sm font-medium text-slate-600 mb-6 leading-relaxed">{confirmModal.message}</p>
+              
+              {confirmModal.showInput && (
+                 <textarea autoFocus value={confirmModal.inputValue} onChange={(e) => setConfirmModal({...confirmModal, inputValue: e.target.value})} placeholder={confirmModal.inputPlaceholder} className="w-full px-4 py-3 border border-slate-300 rounded-xl font-medium outline-none focus:border-indigo-500 h-24 mb-6 text-sm"></textarea>
+              )}
+
               <div className="flex gap-3 justify-end">
                 <button onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))} className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold rounded-xl transition-colors">{confirmModal.cancelText || 'Cancel'}</button>
-                <button onClick={confirmModal.onConfirm} className={`px-5 py-2.5 text-white text-sm font-bold rounded-xl transition-colors ${confirmModal.isDanger ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'}`}>{confirmModal.confirmText || 'Confirm'}</button>
+                <button onClick={() => confirmModal.onConfirm(confirmModal.inputValue)} className={`px-5 py-2.5 text-white text-sm font-bold rounded-xl transition-colors ${confirmModal.isDanger ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'}`}>{confirmModal.confirmText || 'Confirm'}</button>
               </div>
             </div>
           </div>
@@ -1102,10 +1233,10 @@ function RecentAlertsTab({ user, tasks, jumpToTask }) {
           <table className="w-full text-left text-sm text-slate-700 whitespace-nowrap">
             <thead className="bg-red-50/50 border-b border-red-100 text-red-800 uppercase text-[10px] tracking-widest font-black"><tr><th className="px-6 py-4">Reference ID & Deadline</th><th className="px-6 py-4">Subject</th><th className="px-6 py-4 text-center">Action</th></tr></thead>
             <tbody className="divide-y divide-red-50">
-              {myAssigned.map(t => {
+              {myAssigned.map((t, idx) => {
                 const isOverdue = t.deadline && new Date(t.deadline) < new Date();
                 return (
-                  <tr key={t.id} className="hover:bg-red-50/30 transition-colors">
+                  <tr key={`${t.id}-${idx}`} className="hover:bg-red-50/30 transition-colors">
                     <td className="px-6 py-4"><span className="font-black text-slate-800 bg-slate-100 px-2 py-1 rounded text-xs">{t.id}</span>{t.deadline && <span className={`block mt-2 text-[10px] font-bold uppercase tracking-wider ${isOverdue ? 'text-red-600' : 'text-amber-600'}`}><Clock size={10} className="inline mr-1"/>{formatDate(t.deadline)} {formatTime(t.deadline)}</span>}</td>
                     <td className="px-6 py-4"><span className="font-bold text-slate-800 text-base block truncate max-w-[300px]">{t.subject}</span><span className="text-xs text-slate-500 font-medium">{t.category}</span></td>
                     <td className="px-6 py-4 text-center"><button onClick={() => jumpToTask(t.taskType === 'direct' ? 'direct' : 'tasks', t.id)} className="bg-red-100 hover:bg-red-200 text-red-700 font-bold px-4 py-2 rounded-lg transition-colors text-xs uppercase tracking-wider">Show Task</button></td>
@@ -1147,7 +1278,7 @@ function OfficerDashboard({ user, tasks, updateTask, deleteTask, categories, des
 }
 
 function InputFormTab({ tasks, addTask, categories, designations, addCategory, addDesignation, users, triggerPrint, triggerDownloadPDF, creator }) {
-  const initForm = { types: [], category: '', newCategory: '', programDate: '', subject: '', customDeadline: '', attachmentLinks: [''], personal: { name: '', designation: '', newDesignation: '', gender: '', referralPerson: '', mobileNumber: '', whatsappNumber: '', houseName: '', place: '', postOffice: '', pinCode: '', localBody: '', otherLocalBody: '', wardNumber: '' }, description: '', assignedTo: [] };
+  const initForm = { isSelfMode: false, types: [], category: '', newCategory: '', programDate: '', subject: '', customDeadline: '', attachmentLinks: [''], personal: { name: '', designation: '', newDesignation: '', gender: '', referralPerson: '', mobileNumber: '', whatsappNumber: '', houseName: '', place: '', postOffice: '', pinCode: '', localBody: '', otherLocalBody: '', wardNumber: '' }, description: '', assignedTo: [] };
   const [form, setForm] = useState(initForm);
   const [showNewCat, setShowNewCat] = useState(false);
   const [showNewDesig, setShowNewDesig] = useState(false);
@@ -1177,6 +1308,7 @@ function InputFormTab({ tasks, addTask, categories, designations, addCategory, a
   };
 
   const handleMobileBlur = () => {
+    if (form.isSelfMode) return;
     const clean = form.personal.mobileNumber.replace(/\D/g, '');
     if (clean.length >= 10) {
       const match = tasks.sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt)).find(t => t.personalDetails?.mobileNumber?.replace(/\D/g, '') === clean);
@@ -1192,13 +1324,17 @@ function InputFormTab({ tasks, addTask, categories, designations, addCategory, a
 
   const handleSubmit = async (e) => {
     e.preventDefault(); setFormError({ field: '', msg: '' }); if(isSubmitting) return;
-    if (form.types.length === 0) return scrollToField('field-types', 'Please select an Input Type.');
+    if (!form.isSelfMode && form.types.length === 0) return scrollToField('field-types', 'Please select an Input Type.');
 
     let finalCat = form.category;
     if (showNewCat && form.newCategory) { if (!categories.includes(form.newCategory)) await addCategory(form.newCategory); finalCat = form.newCategory; }
     if (!finalCat) return scrollToField('field-category', 'Please select a Category.');
-    if (!form.personal.mobileNumber) return scrollToField('field-mobileNumber', 'Mobile Number is mandatory.');
-    if (!form.personal.name) return scrollToField('field-name', 'Full Name is mandatory.');
+    
+    if (!form.isSelfMode) {
+      if (!form.personal.mobileNumber) return scrollToField('field-mobileNumber', 'Mobile Number is mandatory.');
+      if (!form.personal.name) return scrollToField('field-name', 'Full Name is mandatory.');
+    }
+    
     if (!form.subject.trim()) return scrollToField('field-subject', 'Subject is mandatory.');
 
     const finalLocalBody = form.personal.localBody === 'Other' ? form.personal.otherLocalBody : form.personal.localBody;
@@ -1210,7 +1346,13 @@ function InputFormTab({ tasks, addTask, categories, designations, addCategory, a
 
     setIsSubmitting(true);
     const taskId = generateId(tasks);
-    const finalPersonalDetails = { ...form.personal, designation: finalDesig, localBody: finalLocalBody }; delete finalPersonalDetails.newDesignation; delete finalPersonalDetails.otherLocalBody;
+    
+    const finalPersonalDetails = { ...form.personal, designation: finalDesig, localBody: finalLocalBody }; 
+    delete finalPersonalDetails.newDesignation; delete finalPersonalDetails.otherLocalBody;
+    if (form.isSelfMode) {
+      finalPersonalDetails.name = 'Self Application';
+      finalPersonalDetails.mobileNumber = 'N/A';
+    }
 
     const defaultDeadline = getNextDayISO();
     const finalDeadline = form.customDeadline ? new Date(form.customDeadline).toISOString() : defaultDeadline;
@@ -1220,15 +1362,17 @@ function InputFormTab({ tasks, addTask, categories, designations, addCategory, a
       .filter(link => link.trim())
       .map((link, idx) => ({ name: `External Document Link ${idx + 1}`, url: link.trim(), type: 'link' }));
 
+    const taskTypes = form.isSelfMode ? ['Self Application'] : form.types;
+
     const newTask = {
-      id: taskId, types: form.types, category: finalCat, personalDetails: finalPersonalDetails, taskType: 'input', subject: form.subject, description: form.description, assignedTo: finalAssignedTo, deadline: finalDeadline, programDate: isInvitation ? form.programDate : null,
-      status: 'Pending', priority: 'Medium', officerStatuses: {}, attachment: null, attachments: attachmentsData, createdAt: getNow(), createdBy: creator.name, createdByUid: creator.id, timeline: [{ id: generateUid(), type: 'created', time: getNow(), by: creator.name, text: `Input Registered. ${deadlineMsg}` }]
+      id: taskId, types: taskTypes, category: finalCat, personalDetails: finalPersonalDetails, taskType: 'input', isSelfMode: form.isSelfMode, subject: form.subject, description: form.description, assignedTo: finalAssignedTo, deadline: finalDeadline, programDate: isInvitation ? form.programDate : null,
+      status: 'Pending', priority: 'Medium', officerStatuses: {}, isSignedByMLA: false, attachment: null, attachments: attachmentsData, createdAt: getNow(), createdBy: creator.name, createdByUid: creator.id, timeline: [{ id: generateUid(), type: 'created', time: getNow(), by: creator.name, text: `Input Registered. ${deadlineMsg}` }]
     };
 
     await addTask(newTask);
     setIsSubmitting(false); setLastTask(newTask);
     
-    if (sendWaMsg && (finalPersonalDetails.whatsappNumber || finalPersonalDetails.mobileNumber)) {
+    if (!form.isSelfMode && sendWaMsg && (finalPersonalDetails.whatsappNumber || finalPersonalDetails.mobileNumber)) {
       const waNum = formatWhatsAppNumber(finalPersonalDetails.whatsappNumber || finalPersonalDetails.mobileNumber);
       if (waNum) {
         const waMessage = `പ്രിയപ്പെട്ട ${finalPersonalDetails.name},\n\nതാങ്കൾ പി.കെ നവാസ് എം.എൽ.എ യുടെ ഓഫീസുമായി ബന്ധപ്പെട്ടതിന് നന്ദി. നിങ്ങളുടെ അപേക്ഷ/പരാതി ഔദ്യോഗികമായി രേഖപ്പെടുത്തിയിട്ടുണ്ട്.\n\n*വിഷയം:* ${form.subject}\n*റഫറൻസ് ഐഡി:* ${taskId}\n\n\nസ്നേഹത്തോടെ,\nഎം.എൽ.എ ഓഫീസ്, താനൂർ.ഫോൺ: 9037032002`;
@@ -1252,18 +1396,29 @@ function InputFormTab({ tasks, addTask, categories, designations, addCategory, a
   }
 
   return (
-    <form onSubmit={handleSubmit} noValidate className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-      <div className="p-8 border-b border-slate-100 bg-slate-50/50 grid md:grid-cols-2 gap-10">
-        <div id="field-types" className="p-2 -m-2">
-          <h3 className="font-black text-slate-800 mb-4 flex items-center gap-2 text-lg"><Filter className="text-blue-600"/> Input Type * {formError.field === 'field-types' && <span className="text-red-500 text-xs animate-pulse bg-red-100 px-2 py-1 rounded ml-auto">{formError.msg}</span>}</h3>
-          <div className="grid grid-cols-2 gap-3">
-            {INPUT_TYPES.map(type => (
-              <label key={type} className={`flex items-center gap-3 cursor-pointer px-4 py-3 rounded-xl border transition-all font-bold text-sm ${form.types.includes(type) ? 'bg-blue-50 border-blue-400 text-blue-800 shadow-sm' : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'}`}>
-                <input type="radio" name="inputTypeRadio" checked={form.types.includes(type)} onChange={() => setForm({ ...form, types: [type] })} className="w-4 h-4 text-blue-600 focus:ring-blue-500" /><span>{type}</span>
-              </label>
-            ))}
+    <form onSubmit={handleSubmit} noValidate className={`bg-white rounded-2xl shadow-sm border overflow-hidden ${form.isSelfMode ? 'border-yellow-300' : 'border-slate-200'}`}>
+      
+      <div className="bg-slate-900 px-8 py-4 flex justify-between items-center text-white">
+         <h2 className="font-black text-lg flex items-center gap-2"><Plus size={20}/> New Registration</h2>
+         <label className="flex items-center gap-2 cursor-pointer bg-slate-800 hover:bg-slate-700 px-4 py-2 rounded-xl border border-slate-600 transition-colors">
+            <input type="checkbox" checked={form.isSelfMode} onChange={(e) => setForm({...form, isSelfMode: e.target.checked})} className="w-4 h-4 text-yellow-500 rounded focus:ring-yellow-500" />
+            <span className="font-bold text-sm text-yellow-400">Self Application Mode (No Citizen Contact)</span>
+         </label>
+      </div>
+
+      <div className={`p-8 border-b border-slate-100 bg-slate-50/50 grid ${form.isSelfMode ? 'grid-cols-1 max-w-3xl' : 'md:grid-cols-2'} gap-10`}>
+        {!form.isSelfMode && (
+          <div id="field-types" className="p-2 -m-2">
+            <h3 className="font-black text-slate-800 mb-4 flex items-center gap-2 text-lg"><Filter className="text-blue-600"/> Input Type * {formError.field === 'field-types' && <span className="text-red-500 text-xs animate-pulse bg-red-100 px-2 py-1 rounded ml-auto">{formError.msg}</span>}</h3>
+            <div className="grid grid-cols-2 gap-3">
+              {INPUT_TYPES.map(type => (
+                <label key={type} className={`flex items-center gap-3 cursor-pointer px-4 py-3 rounded-xl border transition-all font-bold text-sm ${form.types.includes(type) ? 'bg-blue-50 border-blue-400 text-blue-800 shadow-sm' : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'}`}>
+                  <input type="radio" name="inputTypeRadio" checked={form.types.includes(type)} onChange={() => setForm({ ...form, types: [type] })} className="w-4 h-4 text-blue-600 focus:ring-blue-500" /><span>{type}</span>
+                </label>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
         <div id="field-category" className="p-2 -m-2">
           <h3 className="font-black text-slate-800 mb-4 flex items-center gap-2 text-lg"><FileText className="text-blue-600"/> Category * {formError.field === 'field-category' && <span className="text-red-500 text-xs animate-pulse bg-red-100 px-2 py-1 rounded ml-auto">{formError.msg}</span>}</h3>
           {!showNewCat ? (<SearchableCategorySelect categories={categories} selected={form.category} onChange={(value) => setForm({...form, category: value})} onAddNewClick={() => setShowNewCat(true)} />) : (
@@ -1274,40 +1429,49 @@ function InputFormTab({ tasks, addTask, categories, designations, addCategory, a
           )}
         </div>
       </div>
-      <div className="p-8 border-b border-slate-100 relative">
-        <div className="flex justify-between items-center mb-6"><h3 className="font-black text-slate-800 flex items-center gap-2 text-lg"><User className="text-blue-600"/> Citizen Details</h3>{autoFilledMessage && <span className="text-xs font-black bg-green-100 text-green-700 px-3 py-1 rounded-full animate-in fade-in">{autoFilledMessage}</span>}</div>
+      <div className={`p-8 border-b border-slate-100 relative ${form.isSelfMode ? 'bg-yellow-50/50' : 'bg-white'}`}>
+        <div className="flex justify-between items-center mb-6"><h3 className="font-black text-slate-800 flex items-center gap-2 text-lg"><User className="text-blue-600"/> {form.isSelfMode ? 'Application Details' : 'Citizen Details'}</h3>{autoFilledMessage && <span className="text-xs font-black bg-green-100 text-green-700 px-3 py-1 rounded-full animate-in fade-in">{autoFilledMessage}</span>}</div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          <div id="field-mobileNumber" className="p-2 -m-2">
-             <label className="flex justify-between items-center text-xs font-black text-slate-500 uppercase tracking-widest mb-2"><span>Mobile Number *</span>{formError.field === 'field-mobileNumber' && <span className="text-red-500 normal-case tracking-normal font-bold animate-pulse">{formError.msg}</span>}</label>
-             <input required name="mobileNumber" value={form.personal.mobileNumber} onChange={handlePersChange} onBlur={handleMobileBlur} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:bg-white focus:border-blue-500 outline-none transition-all" placeholder="Enter to auto-fill..." />
-          </div>
-          <div id="field-name" className="p-2 -m-2">
-             <label className="flex justify-between items-center text-xs font-black text-slate-500 uppercase tracking-widest mb-2"><span>Full Name *</span>{formError.field === 'field-name' && <span className="text-red-500 normal-case tracking-normal font-bold animate-pulse">{formError.msg}</span>}</label>
-             <input required name="name" value={form.personal.name} onChange={handlePersChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:bg-white focus:border-blue-500 outline-none transition-all" />
-          </div>
-          <div>
-             <label className="flex justify-between items-center text-xs font-black text-slate-500 uppercase tracking-widest mb-2"><span>WhatsApp Number</span><label className="flex items-center gap-1 cursor-pointer text-blue-600 normal-case tracking-normal text-[10px] font-bold"><input type="checkbox" checked={sendWaMsgSame} onChange={(e) => { const c = e.target.checked; setSendWaMsgSame(c); if(c) setForm(prev => ({...prev, personal: {...prev.personal, whatsappNumber: prev.personal.mobileNumber}})); }} className="rounded w-3 h-3"/> Same as Mobile</label></label>
-             <input name="whatsappNumber" value={form.personal.whatsappNumber} onChange={handlePersChange} disabled={sendWaMsgSame} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:bg-white focus:border-blue-500 outline-none transition-all disabled:opacity-60" />
-          </div>
-          <div>
-             <label className="flex justify-between items-center text-xs font-black text-slate-500 uppercase tracking-widest mb-2"><span>Designation</span></label>
-             {!showNewDesig ? (<div className="flex gap-2"><select name="designation" value={form.personal.designation} onChange={handlePersChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:bg-white focus:border-blue-500 outline-none transition-all"><option value="">Select Designation...</option>{designations.map(d => <option key={d} value={d}>{d}</option>)}</select><button type="button" onClick={() => setShowNewDesig(true)} className="bg-blue-50 text-blue-600 px-3 rounded-xl hover:bg-blue-100"><Plus size={16}/></button></div>) : (<div className="flex gap-2"><input type="text" name="newDesignation" placeholder="New Designation" value={form.personal.newDesignation} onChange={handlePersChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:bg-white focus:border-blue-500 outline-none" /><button type="button" onClick={() => { setShowNewDesig(false); setForm(prev => ({...prev, personal: {...prev.personal, newDesignation: ''}})); }} className="px-3 bg-red-50 text-red-600 rounded-xl"><X size={16}/></button></div>)}
-          </div>
-          <div>
-             <label className="flex justify-between items-center text-xs font-black text-slate-500 uppercase tracking-widest mb-2"><span>Gender</span></label>
-             <select name="gender" value={form.personal.gender} onChange={handlePersChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:bg-white focus:border-blue-500 outline-none transition-all"><option value="">Select Gender...</option><option value="Male">Male</option><option value="Female">Female</option><option value="Other">Other</option></select>
-          </div>
-          <div><label className="flex justify-between items-center text-xs font-black text-slate-500 uppercase tracking-widest mb-2"><span>Referral Person</span></label><input name="referralPerson" value={form.personal.referralPerson} onChange={handlePersChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:bg-white focus:border-blue-500 outline-none transition-all" /></div>
-          <div><label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">House Name</label><input name="houseName" value={form.personal.houseName} onChange={handlePersChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:bg-white focus:border-blue-500 outline-none transition-all" /></div>
+          
+          {!form.isSelfMode && (
+            <>
+              <div id="field-mobileNumber" className="p-2 -m-2">
+                 <label className="flex justify-between items-center text-xs font-black text-slate-500 uppercase tracking-widest mb-2"><span>Mobile Number *</span>{formError.field === 'field-mobileNumber' && <span className="text-red-500 normal-case tracking-normal font-bold animate-pulse">{formError.msg}</span>}</label>
+                 <input required name="mobileNumber" value={form.personal.mobileNumber} onChange={handlePersChange} onBlur={handleMobileBlur} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:bg-white focus:border-blue-500 outline-none transition-all" placeholder="Enter to auto-fill..." />
+              </div>
+              <div id="field-name" className="p-2 -m-2">
+                 <label className="flex justify-between items-center text-xs font-black text-slate-500 uppercase tracking-widest mb-2"><span>Full Name *</span>{formError.field === 'field-name' && <span className="text-red-500 normal-case tracking-normal font-bold animate-pulse">{formError.msg}</span>}</label>
+                 <input required name="name" value={form.personal.name} onChange={handlePersChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:bg-white focus:border-blue-500 outline-none transition-all" />
+              </div>
+              <div>
+                 <label className="flex justify-between items-center text-xs font-black text-slate-500 uppercase tracking-widest mb-2"><span>WhatsApp Number</span><label className="flex items-center gap-1 cursor-pointer text-blue-600 normal-case tracking-normal text-[10px] font-bold"><input type="checkbox" checked={sendWaMsgSame} onChange={(e) => { const c = e.target.checked; setSendWaMsgSame(c); if(c) setForm(prev => ({...prev, personal: {...prev.personal, whatsappNumber: prev.personal.mobileNumber}})); }} className="rounded w-3 h-3"/> Same as Mobile</label></label>
+                 <input name="whatsappNumber" value={form.personal.whatsappNumber} onChange={handlePersChange} disabled={sendWaMsgSame} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:bg-white focus:border-blue-500 outline-none transition-all disabled:opacity-60" />
+              </div>
+              <div>
+                 <label className="flex justify-between items-center text-xs font-black text-slate-500 uppercase tracking-widest mb-2"><span>Gender</span></label>
+                 <select name="gender" value={form.personal.gender} onChange={handlePersChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:bg-white focus:border-blue-500 outline-none transition-all"><option value="">Select Gender...</option><option value="Male">Male</option><option value="Female">Female</option><option value="Other">Other</option></select>
+              </div>
+              <div><label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">House Name</label><input name="houseName" value={form.personal.houseName} onChange={handlePersChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:bg-white focus:border-blue-500 outline-none transition-all" /></div>
+            </>
+          )}
+
+          {/* Common Fields */}
+          {!form.isSelfMode && (
+             <div>
+                <label className="flex justify-between items-center text-xs font-black text-slate-500 uppercase tracking-widest mb-2"><span>Designation</span></label>
+                {!showNewDesig ? (<div className="flex gap-2"><select name="designation" value={form.personal.designation} onChange={handlePersChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:bg-white focus:border-blue-500 outline-none transition-all"><option value="">Select Designation...</option>{designations.map(d => <option key={d} value={d}>{d}</option>)}</select><button type="button" onClick={() => setShowNewDesig(true)} className="bg-blue-50 text-blue-600 px-3 rounded-xl hover:bg-blue-100"><Plus size={16}/></button></div>) : (<div className="flex gap-2"><input type="text" name="newDesignation" placeholder="New Designation" value={form.personal.newDesignation} onChange={handlePersChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:bg-white focus:border-blue-500 outline-none" /><button type="button" onClick={() => { setShowNewDesig(false); setForm(prev => ({...prev, personal: {...prev.personal, newDesignation: ''}})); }} className="px-3 bg-red-50 text-red-600 rounded-xl"><X size={16}/></button></div>)}
+             </div>
+          )}
+          <div><label className="flex justify-between items-center text-xs font-black text-slate-500 uppercase tracking-widest mb-2"><span>Referral Person (Optional)</span></label><input name="referralPerson" value={form.personal.referralPerson} onChange={handlePersChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:bg-white focus:border-blue-500 outline-none transition-all" /></div>
           <div><label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Place Name</label><input name="place" value={form.personal.place} onChange={handlePersChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:bg-white focus:border-blue-500 outline-none transition-all" /></div>
-          <div><label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Post Office</label><input name="postOffice" value={form.personal.postOffice} onChange={handlePersChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:bg-white focus:border-blue-500 outline-none transition-all" /></div>
-          <div><label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">PIN Code</label><input name="pinCode" value={form.personal.pinCode} onChange={handlePersChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:bg-white focus:border-blue-500 outline-none transition-all" /></div>
           <div>
              <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Local Body</label>
              <select name="localBody" value={form.personal.localBody} onChange={handlePersChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:bg-white focus:border-blue-500 outline-none transition-all"><option value="">Select Local Body...</option>{LOCAL_BODIES.map(lb => <option key={lb} value={lb}>{lb}</option>)}</select>
              {form.personal.localBody === 'Other' && (<input type="text" name="otherLocalBody" placeholder="Specify local body..." value={form.personal.otherLocalBody} onChange={handlePersChange} className="w-full mt-2 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:bg-white focus:border-blue-500 outline-none transition-all" />)}
           </div>
           <div><label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Ward Number</label><input name="wardNumber" value={form.personal.wardNumber} onChange={handlePersChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:bg-white focus:border-blue-500 outline-none transition-all" /></div>
+          <div><label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Post Office (Optional)</label><input name="postOffice" value={form.personal.postOffice} onChange={handlePersChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:bg-white focus:border-blue-500 outline-none transition-all" /></div>
+          <div><label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">PIN Code (Optional)</label><input name="pinCode" value={form.personal.pinCode} onChange={handlePersChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:bg-white focus:border-blue-500 outline-none transition-all" /></div>
         </div>
       </div>
       <div className="p-8 bg-slate-50/50">
@@ -1334,19 +1498,38 @@ function InputFormTab({ tasks, addTask, categories, designations, addCategory, a
             </div>
             {isInvitation && (<div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-xl"><label className="block text-xs font-black text-blue-800 uppercase tracking-widest mb-2 flex items-center gap-2"><CalendarPlus size={16}/> Program Date</label><input type="datetime-local" required value={form.programDate} onChange={(e) => setForm({...form, programDate: e.target.value})} className="w-full px-4 py-3 border border-blue-300 rounded-xl font-bold outline-none focus:border-blue-500 bg-white" /></div>)}
           </div>
-          <div id="field-assignedTo" className="p-2 -m-2">
-            <h3 className="font-black text-slate-800 mb-4 flex justify-between items-center text-lg"><span className="flex items-center gap-2"><Users className="text-blue-600"/> Assign To *</span>{formError.field === 'field-assignedTo' && <span className="text-red-500 text-xs animate-pulse bg-red-100 px-2 py-1 rounded">{formError.msg}</span>}</h3>
-            {isInvitation ? (<div className="bg-indigo-50 border border-indigo-200 p-4 rounded-xl flex items-center gap-3 text-indigo-800 font-bold mb-6"><Shield size={24} /> Auto-Assigned exclusively to PK Navas</div>) : (
-              <div className="grid grid-cols-2 gap-3 mb-6">
-                {users.map(u => (<label key={u.id} className={`flex items-center gap-3 cursor-pointer p-3 rounded-xl border transition-all font-bold text-sm ${form.assignedTo.includes(u.id) ? 'bg-indigo-50 border-indigo-400 text-indigo-800 shadow-sm' : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'}`}><input type="checkbox" checked={form.assignedTo.includes(u.id)} onChange={() => setForm({ ...form, assignedTo: form.assignedTo.includes(u.id) ? form.assignedTo.filter(id => id !== u.id) : [...form.assignedTo, u.id] })} className="w-4 h-4 text-indigo-600 rounded" />{u.name}</label>))}
-              </div>
+          
+          <div className="flex flex-col h-full">
+            <div id="field-assignedTo" className="p-2 -m-2 mb-auto">
+              <h3 className="font-black text-slate-800 mb-4 flex justify-between items-center text-lg"><span className="flex items-center gap-2"><Users className="text-blue-600"/> Assign To *</span>{formError.field === 'field-assignedTo' && <span className="text-red-500 text-xs animate-pulse bg-red-100 px-2 py-1 rounded">{formError.msg}</span>}</h3>
+              {isInvitation ? (<div className="bg-indigo-50 border border-indigo-200 p-4 rounded-xl flex items-center gap-3 text-indigo-800 font-bold mb-6"><Shield size={24} /> Auto-Assigned exclusively to PK Navas</div>) : (
+                <div className="grid grid-cols-2 gap-3 mb-6">
+                  {users.map(u => (<label key={u.id} className={`flex items-center gap-3 cursor-pointer p-3 rounded-xl border transition-all font-bold text-sm ${form.assignedTo.includes(u.id) ? 'bg-indigo-50 border-indigo-400 text-indigo-800 shadow-sm' : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'}`}><input type="checkbox" checked={form.assignedTo.includes(u.id)} onChange={() => setForm({ ...form, assignedTo: form.assignedTo.includes(u.id) ? form.assignedTo.filter(id => id !== u.id) : [...form.assignedTo, u.id] })} className="w-4 h-4 text-indigo-600 rounded" />{u.name}</label>))}
+                </div>
+              )}
+              <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl"><label className="block text-xs font-black text-amber-800 uppercase tracking-widest mb-2 flex items-center gap-2"><Clock size={16}/> Target Deadline (Optional)</label><input type="datetime-local" value={form.customDeadline} onChange={(e) => setForm({...form, customDeadline: e.target.value})} className="w-full px-4 py-3 border border-amber-300 rounded-xl font-bold outline-none focus:border-amber-500 bg-white text-sm" /><p className="text-[10px] font-bold text-amber-600 mt-2">If left blank, deadline defaults to exactly 24 hours from now.</p></div>
+            </div>
+
+            {/* Render Link for External Portal Registration */}
+            {EXT_LINKS[form.category] && (
+               <div className="mt-8 bg-blue-50 border border-blue-200 rounded-2xl p-6 text-center shadow-sm">
+                  <h4 className="text-blue-900 font-black mb-2 flex items-center justify-center gap-2">Official Portal Registration</h4>
+                  <p className="text-blue-700 text-sm font-medium mb-4">Ensure this request is also registered on the official {form.category} website if required.</p>
+                  <a href={EXT_LINKS[form.category]} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 bg-blue-600 text-white px-5 py-3 rounded-xl font-bold hover:bg-blue-700 transition-colors shadow-sm">
+                     <ExternalLink size={18}/> Go to {form.category} Official Website
+                  </a>
+               </div>
             )}
-            <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl"><label className="block text-xs font-black text-amber-800 uppercase tracking-widest mb-2 flex items-center gap-2"><Clock size={16}/> Target Deadline (Optional)</label><input type="datetime-local" value={form.customDeadline} onChange={(e) => setForm({...form, customDeadline: e.target.value})} className="w-full px-4 py-3 border border-amber-300 rounded-xl font-bold outline-none focus:border-amber-500 bg-white text-sm" /><p className="text-[10px] font-bold text-amber-600 mt-2">If left blank, deadline defaults to exactly 24 hours from now.</p></div>
           </div>
+
         </div>
       </div>
       <div className="p-8 border-t border-slate-200 bg-white flex flex-col md:flex-row items-center justify-between gap-6">
-        <label className="flex items-center gap-3 cursor-pointer bg-green-50 px-5 py-3 rounded-xl border border-green-200"><input type="checkbox" checked={sendWaMsg} onChange={(e) => setSendWaMsg(e.target.checked)} className="w-5 h-5 text-green-600 rounded" /><span className="font-bold text-green-800 flex items-center gap-2"><Send size={16}/> Auto-Send Malayalam WhatsApp</span></label>
+        {!form.isSelfMode ? (
+           <label className="flex items-center gap-3 cursor-pointer bg-green-50 px-5 py-3 rounded-xl border border-green-200"><input type="checkbox" checked={sendWaMsg} onChange={(e) => setSendWaMsg(e.target.checked)} className="w-5 h-5 text-green-600 rounded" /><span className="font-bold text-green-800 flex items-center gap-2"><Send size={16}/> Auto-Send Malayalam WhatsApp</span></label>
+        ) : (
+           <div className="text-sm font-bold text-slate-400 italic">WhatsApp updates disabled in Self Mode.</div>
+        )}
         <button type="submit" disabled={isSubmitting} className={`w-full md:w-auto font-black py-4 px-10 rounded-xl shadow-lg transition-transform transform ${isSubmitting ? 'bg-slate-500 cursor-not-allowed opacity-80' : 'bg-slate-900 hover:bg-black hover:-translate-y-1'} text-white text-lg flex items-center justify-center gap-2`}>{isSubmitting ? 'Uploading & Submitting...' : <><Check size={24} /> Submit Input</>}</button>
       </div>
     </form>
@@ -1380,16 +1563,16 @@ function WorkerTab({ user, tasks, globalFilters, updateTask, isAdminOverride, ta
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Column title="New / Pending" count={todo.length} color="slate">
-          {todo.map(t => <WorkerTaskCard key={t.id} task={t} user={user} updateTask={updateTask} isAdminOverride={isAdminOverride} triggerViewDetails={triggerViewDetails} triggerConfirm={triggerConfirm} />)}
+          {todo.map((t, idx) => <WorkerTaskCard key={`${t.id}-${idx}`} task={t} user={user} updateTask={updateTask} isAdminOverride={isAdminOverride} triggerViewDetails={triggerViewDetails} triggerConfirm={triggerConfirm} />)}
         </Column>
         <Column title="In Progress" count={inProg.length} color="blue">
-          {inProg.map(t => <WorkerTaskCard key={t.id} task={t} user={user} updateTask={updateTask} isAdminOverride={isAdminOverride} triggerViewDetails={triggerViewDetails} triggerConfirm={triggerConfirm} />)}
+          {inProg.map((t, idx) => <WorkerTaskCard key={`${t.id}-${idx}`} task={t} user={user} updateTask={updateTask} isAdminOverride={isAdminOverride} triggerViewDetails={triggerViewDetails} triggerConfirm={triggerConfirm} />)}
         </Column>
         <Column title="Completed" count={comp.length} color="green">
-          {comp.map(t => <WorkerTaskCard key={t.id} task={t} user={user} updateTask={updateTask} isAdminOverride={isAdminOverride} triggerViewDetails={triggerViewDetails} triggerConfirm={triggerConfirm} />)}
+          {comp.map((t, idx) => <WorkerTaskCard key={`${t.id}-${idx}`} task={t} user={user} updateTask={updateTask} isAdminOverride={isAdminOverride} triggerViewDetails={triggerViewDetails} triggerConfirm={triggerConfirm} />)}
           {unsolved.length > 0 && <div className="mt-8 pt-4 border-t-2 border-dashed border-slate-300">
             <h4 className="font-bold text-slate-500 mb-4 uppercase tracking-widest text-xs text-center">Unsolved / Closed</h4>
-            {unsolved.map(t => <WorkerTaskCard key={t.id} task={t} user={user} updateTask={updateTask} isUnsolved isAdminOverride={isAdminOverride} triggerViewDetails={triggerViewDetails} triggerConfirm={triggerConfirm} />)}
+            {unsolved.map((t, idx) => <WorkerTaskCard key={`${t.id}-${idx}`} task={t} user={user} updateTask={updateTask} isUnsolved isAdminOverride={isAdminOverride} triggerViewDetails={triggerViewDetails} triggerConfirm={triggerConfirm} />)}
           </div>}
         </Column>
       </div>
@@ -1422,8 +1605,15 @@ const WorkerTaskCard = React.memo(({ task, user, updateTask, isUnsolved, isAdmin
     if (newStatus === 'Completed') globStat = allAssigned.every(s => s === 'Completed') ? 'Completed' : 'In Progress';
     else if (newStatus === 'In Progress' || newStatus === 'Received') if (globStat === 'Pending') globStat = 'In Progress';
 
-    const ev = customTimelineEvent || { id: generateUid(), type: newStatus.toLowerCase(), time: getNow(), by: user.name, text: `Marked as ${newStatus}` };
-    updateTask(task.id, { officerStatuses: newOffStat, status: globStat, timeline: [...task.timeline, ev] });
+    const evs = [];
+    if (customTimelineEvent) {
+      if (Array.isArray(customTimelineEvent)) evs.push(...customTimelineEvent);
+      else evs.push(customTimelineEvent);
+    } else {
+      evs.push({ id: generateUid(), type: newStatus.toLowerCase(), time: getNow(), by: user.name, text: `Marked as ${newStatus}` });
+    }
+
+    updateTask(task.id, { officerStatuses: newOffStat, status: globStat, timeline: [...task.timeline, ...evs] });
   };
 
   const handleSaveUpdate = () => {
@@ -1446,19 +1636,22 @@ const WorkerTaskCard = React.memo(({ task, user, updateTask, isUnsolved, isAdmin
     return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=Invitation:+${encodeURIComponent(task.subject)}&dates=${fmt(s)}/${fmt(e)}&details=${encodeURIComponent(det)}&location=${encodeURIComponent(loc)}`;
   };
 
+  const cardBgColor = task.isSelfMode ? 'bg-yellow-50/70' : 'bg-white';
+
   return (
-    <div className={`bg-white p-5 rounded-2xl shadow-sm border ${isUnsolved ? 'border-slate-300 opacity-60 bg-slate-50 grayscale' : status === 'Pending' ? 'border-red-200' : 'border-slate-200'} relative`}>
+    <div className={`${cardBgColor} p-5 rounded-2xl shadow-sm border ${isUnsolved ? 'border-slate-300 opacity-60 bg-slate-50 grayscale' : status === 'Pending' ? 'border-red-200' : task.isSelfMode ? 'border-yellow-300' : 'border-slate-200'} relative`}>
       <div className="flex justify-between items-start mb-3">
         <div className="flex flex-wrap gap-2">
           <span className="bg-slate-800 text-white text-[10px] font-black px-2 py-0.5 rounded shadow-sm uppercase tracking-wider">{task.id}</span>
           <span className={`${task.taskType==='direct'?'bg-indigo-50 text-indigo-800 border-indigo-200':'bg-blue-50 text-blue-800 border-blue-200'} text-[10px] font-black px-2 py-0.5 rounded border uppercase tracking-wide truncate max-w-[120px]`}>{task.category}</span>
+          {task.isSelfMode && <span className="bg-yellow-400 text-yellow-900 text-[10px] font-black px-2 py-0.5 rounded shadow-sm uppercase tracking-wider">Self Mode</span>}
         </div>
         <span className="text-xs font-bold text-slate-400">{formatDate(task.createdAt)}</span>
       </div>
       <h4 className="font-bold text-slate-800 text-base mb-1 line-clamp-2">{task.subject || task.personalDetails.name}</h4>
       <p className="text-xs font-black text-indigo-600 mb-2 uppercase tracking-widest">{task.personalDetails.name} {task.personalDetails.referralPerson && `(Ref: ${task.personalDetails.referralPerson})`}</p>
       <p className="text-xs font-medium text-slate-500 mb-3">{task.personalDetails.mobileNumber} • {task.personalDetails.place || 'No place'}</p>
-      {task.description && <div className="bg-slate-50 p-3 rounded-xl text-sm font-medium text-slate-700 line-clamp-3 border border-slate-100 mb-3 whitespace-pre-wrap" title={task.description}>{task.description}</div>}
+      {task.description && <div className="bg-slate-50/50 p-3 rounded-xl text-sm font-medium text-slate-700 line-clamp-3 border border-slate-100 mb-3 whitespace-pre-wrap" title={task.description}>{task.description}</div>}
 
       {(task.attachment || (task.attachments && task.attachments.length > 0)) && (
         <div className="mb-3 bg-indigo-50 border border-indigo-100 rounded-xl p-3 flex flex-col gap-2">
@@ -1482,14 +1675,21 @@ const WorkerTaskCard = React.memo(({ task, user, updateTask, isUnsolved, isAdmin
       )}
 
       {!isUnsolved && (
-        <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-slate-100">
+        <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-slate-100/50">
           {status === 'Pending' && <button onClick={() => changeStatus('Received')} className="bg-slate-800 text-white px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-widest hover:bg-black transition-colors w-full">Receive Task</button>}
           {(status === 'Received' || status === 'In Progress') && (
             <div className="w-full space-y-2">
               <button onClick={() => setShowProgressModal(true)} className="w-full bg-blue-600 text-white px-3 py-2 rounded-lg text-sm font-black hover:bg-blue-700 transition-colors shadow-sm flex items-center justify-center gap-2">
                 <Activity size={16}/> {status === 'Received' ? 'Start Progress' : 'Add Progress Update'}
               </button>
-              <button onClick={() => { triggerConfirm("Confirm Task Completion", `Are you sure you want to mark task ID ${task.id} as completely solved?`, () => changeStatus('Completed'), false, "Mark Completed"); }} className="w-full bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg text-sm font-black transition-colors shadow-sm flex items-center justify-center gap-2">
+              <button onClick={() => { 
+                triggerConfirm("Confirm Task Completion", `Are you sure you want to mark task ID ${task.id} as completely solved?`, (note) => {
+                  const evs = [];
+                  if (note && note.trim()) evs.push({ id: generateUid(), type: 'update', time: getNow(), by: user.name, text: `Completion Note: ${note}` });
+                  evs.push({ id: generateUid(), type: 'completed', time: getNow(), by: user.name, text: 'Task marked as fully completed.' });
+                  changeStatus('Completed', evs);
+                }, false, "Mark Completed", true, "Enter optional completion note here..."); 
+              }} className="w-full bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg text-sm font-black transition-colors shadow-sm flex items-center justify-center gap-2">
                 <CheckCircle size={16}/> Mark Completed
               </button>
             </div>
@@ -1498,15 +1698,15 @@ const WorkerTaskCard = React.memo(({ task, user, updateTask, isUnsolved, isAdmin
         </div>
       )}
 
-      <div className="flex gap-2 mt-4 pt-4 border-t border-slate-100">
+      <div className="flex gap-2 mt-4 pt-4 border-t border-slate-100/50">
         <button onClick={() => triggerViewDetails(task)} className="flex-1 bg-slate-100 text-slate-700 font-bold py-2 rounded-xl text-xs hover:bg-slate-200 transition-colors flex items-center justify-center gap-1"><Eye size={14}/> View Full Details</button>
       </div>
 
       {myUpdates.length > 0 && (
-        <div className="mt-4 pt-3 border-t border-slate-100 space-y-3">
+        <div className="mt-4 pt-3 border-t border-slate-100/50 space-y-3">
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">My Progress Updates</p>
           {myUpdates.slice(0, 2).map(up => (
-            <div key={up.id} className="bg-amber-50 p-3 rounded-lg border border-amber-100 relative group">
+            <div key={up.id} className="bg-amber-50/70 p-3 rounded-lg border border-amber-100 relative group">
               <div className="text-xs font-medium text-slate-700 pr-12">
                  <span className="font-bold text-amber-800 mr-1 block">{formatDate(up.time)}</span> 
                  {up.text}
@@ -1515,7 +1715,7 @@ const WorkerTaskCard = React.memo(({ task, user, updateTask, isUnsolved, isAdmin
                  )}
               </div>
               <div className="absolute right-2 top-2 flex flex-col gap-1">
-                 <button onClick={()=>sendWhatsAppUpdate(task, up.text, up.link)} title="Send Update to WhatsApp" className="text-green-600 bg-green-100/50 hover:bg-green-200 p-1.5 rounded transition-colors"><MessageSquare size={12}/></button>
+                 {!task.isSelfMode && <button onClick={()=>sendWhatsAppUpdate(task, up.text, up.link)} title="Send Update to WhatsApp" className="text-green-600 bg-green-100/50 hover:bg-green-200 p-1.5 rounded transition-colors"><MessageSquare size={12}/></button>}
                  <button onClick={()=>deleteUpdate(up.id)} title="Delete Update" className="text-red-400 bg-red-50 hover:bg-red-100 hover:text-red-600 p-1.5 rounded opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={12}/></button>
               </div>
             </div>
@@ -1549,6 +1749,7 @@ function AllTasksHistoryTab({ tasks, globalFilters, categories, triggerPrint, tr
   const displayed = useMemo(() => filtered.slice(0, visibleCount), [filtered, visibleCount]);
   
   const handleSendWA = (t) => {
+    if (t.isSelfMode) return;
     const num = t.personalDetails?.whatsappNumber || t.personalDetails?.mobileNumber;
     const waNum = formatWhatsAppNumber(num);
     if (!waNum) { alert('No valid mobile number found for this citizen.'); return; }
@@ -1570,15 +1771,15 @@ function AllTasksHistoryTab({ tasks, globalFilters, categories, triggerPrint, tr
         <table className="w-full text-left text-sm text-slate-700 whitespace-nowrap">
           <thead className="bg-slate-50 border-y border-slate-200 text-slate-500 uppercase text-xs tracking-widest font-black"><tr><th className="px-4 py-3">ID & Date</th><th className="px-4 py-3">Subject & Citizen</th><th className="px-4 py-3">Category</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Actions</th></tr></thead>
           <tbody className="divide-y divide-slate-100">
-            {displayed.map(t => (
-              <tr key={t.id} className="hover:bg-slate-50 font-medium">
-                <td className="px-4 py-3"><span className="font-black text-slate-800">{t.id}</span><br/><span className="text-xs text-slate-400">{formatDate(t.createdAt)}</span></td>
+            {displayed.map((t, idx) => (
+              <tr key={`${t.id}-${idx}`} className={`hover:bg-slate-50 font-medium ${t.isSelfMode ? 'bg-yellow-50/40' : ''}`}>
+                <td className="px-4 py-3"><span className="font-black text-slate-800">{t.id}</span> {t.isSelfMode && <span className="bg-yellow-300 text-yellow-900 px-1 py-0.5 rounded text-[8px] font-bold ml-1 uppercase">Self</span>}<br/><span className="text-xs text-slate-400">{formatDate(t.createdAt)}</span></td>
                 <td className="px-4 py-3"><span className="font-bold text-slate-800 max-w-[200px] truncate block">{t.subject || '-'}</span><span className="text-xs text-slate-500">{t.personalDetails.name} • {t.personalDetails.mobileNumber}</span></td>
                 <td className="px-4 py-3"><span className="bg-slate-100 px-2 py-0.5 rounded text-xs">{t.category}</span></td>
                 <td className="px-4 py-3"><span className={`px-2 py-1 rounded text-xs font-black uppercase ${t.status==='Completed'?'bg-green-100 text-green-700':t.status==='In Progress'?'bg-amber-100 text-amber-700':t.status==='Unsolved'?'bg-slate-200 text-slate-500':'bg-red-100 text-red-700'}`}>{t.status}</span></td>
                 <td className="px-4 py-3 flex items-center gap-2">
                   <button onClick={()=>{ triggerViewDetails(t); }} title="Detailed Report" className="text-slate-600 hover:bg-slate-200 p-2 rounded-lg transition-colors bg-slate-100"><Eye size={16}/></button>
-                  <button onClick={() => handleSendWA(t)} title="Send WhatsApp Acknowledgement" className="text-green-600 hover:bg-green-100 p-2 rounded-lg transition-colors bg-green-50"><Send size={16}/></button>
+                  {!t.isSelfMode && <button onClick={() => handleSendWA(t)} title="Send WhatsApp Acknowledgement" className="text-green-600 hover:bg-green-100 p-2 rounded-lg transition-colors bg-green-50"><Send size={16}/></button>}
                   <button onClick={()=>triggerPrint(t)} title="Print Slip" className="text-blue-600 hover:bg-blue-100 p-2 rounded-lg transition-colors bg-blue-50"><Printer size={16}/></button>
                   <button onClick={()=>{ triggerDownloadPDF(t); }} title="Download Slip PDF" className="text-indigo-600 hover:bg-indigo-100 p-2 rounded-lg transition-colors bg-indigo-50"><Download size={16}/></button>
                   {(currentUser.role === 'admin' || t.status === 'Pending') && (
@@ -1617,7 +1818,7 @@ function AdminDashboard({ tasks, updateTask, deleteTask, categories, designation
   
   const uniqueVisitors = useMemo(() => {
     const phones = new Set();
-    analyticsTasks.forEach(t => { if (t.taskType !== 'direct' && t.personalDetails?.mobileNumber) phones.add(t.personalDetails.mobileNumber.replace(/\D/g, '')); });
+    analyticsTasks.forEach(t => { if (t.taskType !== 'direct' && !t.isSelfMode && t.personalDetails?.mobileNumber) phones.add(t.personalDetails.mobileNumber.replace(/\D/g, '')); });
     return phones.size;
   }, [analyticsTasks]);
 
@@ -1645,7 +1846,7 @@ function AdminDashboard({ tasks, updateTask, deleteTask, categories, designation
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <StatCard title="Total Inputs" value={total} color="blue" icon={<FileText size={24}/>}/>
-            <StatCard title="Total Visitors" value={uniqueVisitors} color="indigo" icon={<Users size={24}/>}/>
+            <StatCard title="Total Citizens" value={uniqueVisitors} color="indigo" icon={<Users size={24}/>}/>
             <StatCard title="Completed" value={comp} color="green" icon={<CheckCircle size={24}/>}/>
             <StatCard title="Pending" value={pend} color="red" icon={<Clock size={24}/>}/>
           </div>
@@ -1673,7 +1874,7 @@ function AdminCitizenDirectory({ tasks, triggerCitizenPrint, triggerDownloadPDF 
   const citizensData = useMemo(() => {
     const map = new Map();
     tasks.forEach(t => {
-      if (t.taskType === 'direct') return;
+      if (t.taskType === 'direct' || t.isSelfMode) return;
       const phone = t.personalDetails?.mobileNumber;
       if (!phone) return;
       if (!map.has(phone)) map.set(phone, { ...t.personalDetails, visits: 1, lastVisit: t.createdAt });
@@ -1929,7 +2130,7 @@ function AdminDirectAssignments({ users, tasks, globalFilters, addTask, triggerP
   const handleAssign = async (e) => {
     e.preventDefault(); if(!desc || assignedTo.length===0) return alert("Fill description and select assignee");
     const taskId = generateId(tasks);
-    const newTask = { id: taskId, types: ['Direct Assignment'], category: 'Direct Assignment', taskType: 'direct', subject: 'MLA Assignment', personalDetails: { name: 'Internal Assignment', mobileNumber: 'N/A' }, description: desc, assignedTo, status: 'Pending', priority: 'High', officerStatuses: {}, createdAt: getNow(), createdBy: 'PK Navas', createdByUid: 'admin', timeline: [{ id: generateUid(), type: 'created', time: getNow(), by: 'PK Navas', text: 'Direct Assignment Created' }] };
+    const newTask = { id: taskId, types: ['Direct Assignment'], category: 'Direct Assignment', taskType: 'direct', isSelfMode: false, subject: 'MLA Assignment', personalDetails: { name: 'Internal Assignment', mobileNumber: 'N/A' }, description: desc, assignedTo, status: 'Pending', priority: 'High', officerStatuses: {}, isSignedByMLA: false, createdAt: getNow(), createdBy: 'PK Navas', createdByUid: 'admin', timeline: [{ id: generateUid(), type: 'created', time: getNow(), by: 'PK Navas', text: 'Direct Assignment Created' }] };
     await addTask(newTask); setDesc(''); setAssignedTo([]);
   };
 
@@ -1968,14 +2169,16 @@ function AdminGlobalView({ tasks, globalFilters, updateTask, deleteTask, users, 
   const toggleUnsolved = useCallback((task) => updateTask(task.id, { status: task.status === 'Unsolved' ? 'Pending' : 'Unsolved' }), [updateTask]);
   
   const quickCompleteTask = useCallback((task) => {
-    const newOffStat = { ...task.officerStatuses };
-    task.assignedTo.forEach(id => newOffStat[id] = 'Completed');
-    updateTask(task.id, {
-        status: 'Completed',
-        officerStatuses: newOffStat,
-        timeline: [...task.timeline, { id: generateUid(), type: 'completed', time: getNow(), by: 'PK Navas (Admin)', text: 'Task marked as fully completed directly by Admin.' }]
-    });
-  }, [updateTask]);
+    triggerConfirm("Quick Complete Task", `Mark task ${task.id} as fully completed for all officers? You can provide a completion note below:`, (note) => {
+      const newOffStat = { ...task.officerStatuses };
+      task.assignedTo.forEach(id => newOffStat[id] = 'Completed');
+      const evs = [];
+      if (note && note.trim()) evs.push({ id: generateUid(), type: 'update', time: getNow(), by: 'PK Navas (Admin)', text: `Completion Note: ${note}` });
+      evs.push({ id: generateUid(), type: 'completed', time: getNow(), by: 'PK Navas (Admin)', text: 'Task marked as fully completed directly by Admin.' });
+
+      updateTask(task.id, { status: 'Completed', officerStatuses: newOffStat, timeline: [...task.timeline, ...evs] });
+    }, false, "Mark Completed", true, "Enter optional completion note here...");
+  }, [updateTask, triggerConfirm]);
 
   const togglePriority = useCallback((task) => {
     const p = ['Low', 'Medium', 'High'];
@@ -1995,7 +2198,7 @@ function AdminGlobalView({ tasks, globalFilters, updateTask, deleteTask, users, 
         </select>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {displayed.map(t => <AdminTaskCard key={t.id} t={t} users={users} toggleUnsolved={toggleUnsolved} quickCompleteTask={quickCompleteTask} togglePriority={togglePriority} triggerViewDetails={triggerViewDetails} deleteTask={deleteTask} triggerConfirm={triggerConfirm} /> )}
+        {displayed.map((t, i) => <AdminTaskCard key={`${t.id}-${i}`} t={t} users={users} toggleUnsolved={toggleUnsolved} quickCompleteTask={quickCompleteTask} togglePriority={togglePriority} triggerViewDetails={triggerViewDetails} deleteTask={deleteTask} triggerConfirm={triggerConfirm} /> )}
         {displayed.length === 0 && <div className="col-span-full py-10 text-center text-slate-500 font-bold bg-white rounded-2xl border border-slate-200">No records found.</div>}
       </div>
       {visibleCount < filtered.length && (
@@ -2012,15 +2215,20 @@ const AdminTaskCard = React.memo(({ t, users, toggleUnsolved, quickCompleteTask,
   const getPriorityColor = (p) => { if (p === 'High') return 'bg-red-100 text-red-700 border border-red-200 hover:bg-red-200'; if (p === 'Low') return 'bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200'; return 'bg-amber-100 text-amber-700 border border-amber-200 hover:bg-amber-200'; };
   const getStatusColor = (s) => { if (s === 'Completed') return 'text-green-600'; if (s === 'In Progress') return 'text-amber-600'; if (s === 'Unsolved') return 'text-slate-500'; return 'text-red-600'; };
 
+  const cardBg = t.isSelfMode ? 'bg-yellow-50/70 border-yellow-300' : 'bg-white border-slate-200';
+
   return (
-    <div className={`bg-white rounded-2xl p-5 border shadow-sm flex flex-col transition-all relative overflow-hidden ${t.status === 'Unsolved' ? 'border-slate-300 bg-slate-50 opacity-75 grayscale' : 'border-slate-200 hover:shadow-md hover:border-blue-300'}`}>
+    <div className={`${cardBg} rounded-2xl p-5 border shadow-sm flex flex-col transition-all relative overflow-hidden ${t.status === 'Unsolved' ? 'border-slate-300 bg-slate-50 opacity-75 grayscale' : 'hover:shadow-md hover:border-blue-300'}`}>
       {t.status === 'Unsolved' && <div className="absolute top-4 right-4 bg-slate-800 text-white text-[10px] font-black px-2 py-1 rounded shadow-sm uppercase z-10"><Lock size={10} className="inline mr-1"/>Unsolved</div>}
       
       <div className="flex justify-between items-start mb-2">
-        <span className={`text-[10px] font-black px-2 py-1 rounded uppercase tracking-widest ${t.taskType === 'direct' ? 'bg-indigo-100 text-indigo-800' : 'bg-blue-50 text-blue-800'}`}>{t.id}</span>
+        <div className="flex flex-wrap gap-2">
+           <span className={`text-[10px] font-black px-2 py-1 rounded uppercase tracking-widest ${t.taskType === 'direct' ? 'bg-indigo-100 text-indigo-800' : 'bg-blue-50 text-blue-800'}`}>{t.id}</span>
+           {t.isSelfMode && <span className="bg-yellow-400 text-yellow-900 text-[10px] font-black px-2 py-1 rounded shadow-sm uppercase tracking-widest">Self Mode</span>}
+        </div>
         <div className="text-right flex items-center gap-3">
           {t.status !== 'Completed' && t.status !== 'Unsolved' && (
-             <button onClick={(e) => { e.stopPropagation(); triggerConfirm("Quick Complete Task", `Mark task ${t.id} as fully completed for all officers?`, () => quickCompleteTask(t)); }} title="Quick Mark as Completed" className="bg-green-50 text-green-600 border border-green-200 hover:bg-green-100 hover:shadow-sm p-1.5 rounded-full transition-all">
+             <button onClick={(e) => { e.stopPropagation(); quickCompleteTask(t); }} title="Quick Mark as Completed" className="bg-green-50 text-green-600 border border-green-200 hover:bg-green-100 hover:shadow-sm p-1.5 rounded-full transition-all">
                <CheckSquare size={14} />
              </button>
           )}
@@ -2031,12 +2239,12 @@ const AdminTaskCard = React.memo(({ t, users, toggleUnsolved, quickCompleteTask,
         </div>
       </div>
 
-      <div className="mb-2 border-b border-slate-100 pb-2 mt-1">
+      <div className="mb-2 border-b border-slate-100/50 pb-2 mt-1">
         <h3 className="font-black text-slate-800 text-base leading-tight mb-1">{t.personalDetails.name}</h3>
         {t.personalDetails.designation && <p className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider">{t.personalDetails.designation}</p>}
         <div className="flex gap-2 mt-2">
-          <a href={`tel:${t.personalDetails.mobileNumber}`} className="bg-slate-100 p-1.5 rounded-lg text-slate-600 hover:bg-blue-100 hover:text-blue-600 transition-colors"><Phone size={14}/></a>
-          {t.personalDetails.whatsappNumber && <a href={`https://wa.me/${formatWhatsAppNumber(t.personalDetails.whatsappNumber)}`} target="_blank" rel="noreferrer" className="bg-slate-100 p-1.5 rounded-lg text-slate-600 hover:bg-green-100 hover:text-green-600 transition-colors"><MessageSquare size={14}/></a>}
+          {!t.isSelfMode && <a href={`tel:${t.personalDetails.mobileNumber}`} className="bg-slate-100 p-1.5 rounded-lg text-slate-600 hover:bg-blue-100 hover:text-blue-600 transition-colors"><Phone size={14}/></a>}
+          {t.personalDetails.whatsappNumber && !t.isSelfMode && <a href={`https://wa.me/${formatWhatsAppNumber(t.personalDetails.whatsappNumber)}`} target="_blank" rel="noreferrer" className="bg-slate-100 p-1.5 rounded-lg text-slate-600 hover:bg-green-100 hover:text-green-600 transition-colors"><MessageSquare size={14}/></a>}
         </div>
       </div>
 
@@ -2057,14 +2265,17 @@ const AdminTaskCard = React.memo(({ t, users, toggleUnsolved, quickCompleteTask,
         </div>
       )}
 
-      <div className="mb-4 bg-slate-50 p-3 rounded-lg border border-slate-100 flex flex-col gap-2 mt-auto">
+      <div className={`mb-4 ${t.isSelfMode ? 'bg-yellow-100/50' : 'bg-slate-50'} p-3 rounded-lg border border-slate-100/50 flex flex-col gap-2 mt-auto`}>
         <div className="flex justify-between items-center text-xs"><span className="text-slate-500 font-bold">Assigned:</span><span className="font-black text-slate-700 text-right truncate max-w-[120px]" title={t.assignedTo.map(id => users.find(u=>u.id===id)?.name || id).join(', ')}>{t.assignedTo.map(id => users.find(u=>u.id===id)?.name || id).join(', ')}</span></div>
         <div className="flex justify-between items-center text-xs"><span className="text-slate-500 font-bold">Status:</span><span className={`font-black uppercase tracking-wider ${getStatusColor(t.status)}`}>{t.status}</span></div>
         <div className="flex justify-between items-center text-xs"><span className="text-slate-500 font-bold">Priority:</span><button onClick={() => togglePriority(t)} className={`font-black uppercase tracking-wider px-2 py-0.5 rounded transition-colors ${getPriorityColor(t.priority || 'Medium')}`}>{t.priority || 'Medium'}</button></div>
       </div>
 
-      <div className="pt-3 border-t border-slate-100 flex gap-2">
-        <button onClick={() => triggerViewDetails(t)} className="flex-1 bg-slate-800 text-white font-bold py-2 rounded-xl text-xs hover:bg-black transition-colors flex items-center justify-center gap-1"><Eye size={14}/> Details</button>
+      <div className="pt-3 border-t border-slate-100/50 flex flex-wrap gap-2">
+        <button onClick={() => triggerViewDetails(t)} className="flex-1 min-w-[70px] bg-slate-800 text-white font-bold py-2 rounded-xl text-xs hover:bg-black transition-colors flex items-center justify-center gap-1"><Eye size={14}/> Details</button>
+        {t.status === 'Completed' && !t.isSignedByMLA && (
+           <button onClick={(e) => { e.stopPropagation(); updateTask(t.id, { isSignedByMLA: true }); }} className="flex-1 min-w-[70px] bg-blue-600 text-white font-bold py-2 rounded-xl text-xs hover:bg-blue-700 transition-colors flex items-center justify-center gap-1 shadow-sm" title="Digitally Sign Completion Letter"><PenTool size={14}/> Sign</button>
+        )}
         <button onClick={() => toggleUnsolved(t)} className={`px-3 rounded-xl border flex items-center justify-center transition-colors ${t.status==='Unsolved' ? 'bg-amber-100 text-amber-700 border-amber-200 hover:bg-amber-200' : 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200'}`} title={t.status==='Unsolved' ? "Reopen" : "Mark Unsolved"}>{t.status==='Unsolved' ? <Activity size={14}/> : <UserX size={14}/>}</button>
         <button onClick={() => deleteTask(t.id)} className="px-3 rounded-xl border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 transition-colors" title="Delete Permanent"><Trash2 size={14}/></button>
       </div>
